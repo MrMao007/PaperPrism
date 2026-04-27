@@ -1,0 +1,123 @@
+# PaperPrism dimensions — default configuration (v1)
+#
+# Drop this file into ~/.paperprism/dimensions.yaml to override.
+# The Agent watches this file and hot-reloads on change.
+#
+# Each dimension has:
+#   name          : stable key used in DB, API, UI
+#   kind          : enum | multi_enum | number | free_text | date | url | text
+#   description   : shown in UI as tooltip
+#   source        : metadata | pdf | llm | llm+metadata
+#                   (decides which extractor fills it)
+#   options       : closed set for enum / multi_enum
+#   range         : [min, max] for number
+#   max_items     : for multi_enum / free_text
+#   max_chars     : for free_text
+#   prompt        : only for source=llm*; guides the LLM extractor
+
+version: 1
+
+dimensions:
+  # -------- metadata-only fields (free, deterministic) -------------------
+  - name: download_time
+    kind: date
+    source: metadata            # ingested_at on the Agent
+    description: 本地下载归档时间
+
+  - name: paper_time
+    kind: date
+    source: metadata            # arxiv <published>
+    description: 论文在 arxiv 发布时间
+
+  - name: first_author
+    kind: text
+    source: metadata            # arxiv <author>[0]
+    description: 第一作者
+
+  - name: authors
+    kind: multi_enum            # open set of names, order preserved
+    source: metadata            # arxiv <author><name> list
+    max_items: 50
+    description: 完整作者列表（保留原始投稿顺序）
+
+  - name: primary_category
+    kind: text                  # arxiv taxonomy (~170 项)，当 tag 存
+    source: metadata            # arxiv:primary_category/@term
+    description: arxiv 主分类（如 cs.LG、cs.CL、stat.ML）
+
+  - name: arxiv_categories
+    kind: multi_enum            # open set，含跨领域子类
+    source: metadata            # <category term="..."> × N
+    max_items: 10
+    description: arxiv 所有分类标签
+
+  - name: paper_updated_time
+    kind: date
+    source: metadata            # arxiv <updated>
+    description: arxiv 最新版本更新时间（用于识别 v2/v3 迭代）
+
+  - name: code_url
+    kind: url
+    source: metadata            # regex over abstract + first-page text
+    description: 论文代码仓库链接（若公开）
+
+  - name: doi
+    kind: url                   # 展示为 https://doi.org/<id>
+    source: metadata            # arxiv:doi（仅正式发表的论文才有）
+    description: 正式发表的 DOI
+
+  - name: license
+    kind: enum                  # arxiv 使用的开放许可（闭集）
+    source: metadata            # arxiv:license
+    options:
+      - arxiv-default
+      - CC-BY
+      - CC-BY-SA
+      - CC-BY-NC
+      - CC-BY-NC-SA
+      - CC-BY-NC-ND
+      - CC0
+      - Other
+    description: arxiv 发布许可
+
+  # -------- metadata + llm normalization ---------------------------------
+  - name: venue
+    kind: text
+    source: llm+metadata        # arxiv journal_ref/comment → LLM clean up
+    description: 会议或期刊（含年份，如 NeurIPS 2024）
+    prompt: |
+      Given the arxiv `journal_ref` and `comment` strings, extract the
+      conference or journal name and year if present. Return null if it is
+      clearly pre-print only. Format: "NeurIPS 2024" or "TPAMI 2025".
+
+  # -------- pdf + llm extraction -----------------------------------------
+  - name: affiliations
+    kind: multi_enum            # but with open set; normalized at insert
+    source: llm+metadata
+    max_items: 5
+    description: 作者单位（高校/机构），归一化大小写与缩写
+    prompt: |
+      From the first page of the PDF and the author list, extract a list of
+      distinct organizations (universities, labs, companies). Normalize
+      common aliases (e.g. "MIT CSAIL" -> "MIT", "Google DeepMind" stays).
+
+  # -------- llm inference (with arxiv categories as hint) ----------------
+  - name: domain
+    kind: enum
+    source: llm+metadata
+    description: 主研究领域
+    options:
+      - NLP
+      - CV
+      - RL
+      - Robotics
+      - Theory
+      - Systems
+      - MultiModal
+      - Graph
+      - Speech
+      - Other
+    prompt: |
+      Using the title, abstract, and arxiv categories, pick the single most
+      specific research area. If multiple apply, pick the one the paper
+      contributes to most.

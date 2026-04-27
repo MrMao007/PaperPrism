@@ -1,0 +1,44 @@
+# PaperPrism LLM configuration — default (v1)
+#
+# Edit ~/.paperprism/llm.yaml to override. The Agent watches this file at
+# classify-time; no restart required.
+#
+# Switch between cloud & local by changing `provider` and (optionally)
+# `api_base`. Both paths speak OpenAI-compatible API, so one client covers
+# them all.
+#
+# Provider recipes
+# ----------------
+#
+# 1) OpenAI cloud (default):
+#      provider: openai
+#      model: gpt-4o-mini
+#      api_base: null              # uses https://api.openai.com/v1
+#      api_key_env: OPENAI_API_KEY
+#
+# 2) Ollama local (llama3.1:8b, qwen2.5, etc.):
+#      provider: ollama
+#      model: qwen2.5:7b-instruct
+#      api_base: http://localhost:11434/v1
+#      api_key_env: null           # Ollama ignores the key; left empty is fine
+#
+# 3) Azure / OpenRouter / DeepInfra: set `api_base` accordingly and point
+#    `api_key_env` at whichever env var holds the key.
+
+version: 1
+
+provider: openai
+model: qwen3-max
+api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+api_key_env: DASHSCOPE_API_KEY
+
+# Generation params
+temperature: 0.0              # deterministic; we want reproducible labels
+max_output_tokens: 600        # the JSON response is small by design
+timeout_seconds: 60
+max_retries: 2                # per-call retry (transport + 5xx/429)
+
+# Context budget: how much abstract / PDF text we stuff into the prompt.
+# Keep it tight; a classifier doesn't need the whole paper.
+abstract_char_limit: 2000
+pdf_head_char_limit: 1500
