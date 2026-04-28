@@ -27,6 +27,7 @@ const EMPTY_LLM: LlmConfigForm = {
   max_retries: 2,
   abstract_char_limit: 2000,
   pdf_head_char_limit: 1500,
+  auto_tag_on_ingest: true,
   allowed_api_key_envs: [] as string[],
 };
 
@@ -43,6 +44,7 @@ interface LlmConfigForm {
   max_retries: number;
   abstract_char_limit: number;
   pdf_head_char_limit: number;
+  auto_tag_on_ingest: boolean;
   allowed_api_key_envs: string[];
 }
 
@@ -117,6 +119,7 @@ export default function App() {
         max_retries: cfg.max_retries,
         abstract_char_limit: cfg.abstract_char_limit,
         pdf_head_char_limit: cfg.pdf_head_char_limit,
+        auto_tag_on_ingest: cfg.auto_tag_on_ingest,
         allowed_api_key_envs: cfg.allowed_api_key_envs,
       });
       setLlmStatus(`Loaded from ${cfg.path}`);
@@ -143,6 +146,7 @@ export default function App() {
         max_retries: llm.max_retries,
         abstract_char_limit: llm.abstract_char_limit,
         pdf_head_char_limit: llm.pdf_head_char_limit,
+        auto_tag_on_ingest: llm.auto_tag_on_ingest,
       };
       if (llm.api_key.trim()) payload.api_key = llm.api_key;
       const res = await saveLlmConfig(payload);
@@ -405,6 +409,22 @@ export default function App() {
               onChange={(e) => patchLlm('max_retries', Number(e.target.value))}
             />
           </div>
+        </div>
+
+        <div className="opt-field">
+          <label className="opt-checkbox">
+            <input
+              type="checkbox"
+              checked={llm.auto_tag_on_ingest}
+              onChange={(e) => patchLlm('auto_tag_on_ingest', e.target.checked)}
+            />
+            <span>Auto-tag every new paper after ingest</span>
+          </label>
+          <span className="opt-hint">
+            When on, each paper triggers a tiny LLM call (2–5 tags) once
+            enrichment + classification finish. Turn off if you prefer to
+            run batch Auto-tag from the Dashboard instead.
+          </span>
         </div>
 
         <div className="opt-row">

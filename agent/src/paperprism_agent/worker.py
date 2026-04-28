@@ -32,6 +32,7 @@ from paperprism_agent.classifier import (
 )
 from paperprism_agent import dimensions as dim_module
 from paperprism_agent import llm as llm_module
+from paperprism_agent import tagger as tagger_module
 
 log = logging.getLogger("paperprism.worker")
 
@@ -122,6 +123,8 @@ class Worker:
                 await asyncio.to_thread(self._run_enrich, paper_id)
             elif kind == "classify":
                 await asyncio.to_thread(self._run_classify, paper_id)
+            elif kind == "tag":
+                await asyncio.to_thread(self._run_tag, paper_id)
             else:
                 raise RuntimeError(f"unknown task kind: {kind}")
 
@@ -277,6 +280,90 @@ class Worker:
             paper_id, len(rows), model_label,
         )
 
+        # Queue a tag step if the user opted in (default: True). Kept
+        # behind the same LLM config so the on/off switch lives next to
+        # provider/model in Options.
+        try:
+            llm_cfg = self._get_llm_config()
+        except Exception as exc:
+            log.warning("could not load llm config for auto-tag gate: %s", exc)
+            llm_cfg = None
+        if llm_cfg is None or getattr(llm_cfg, "auto_tag_on_ingest", True):
+            tasks.enqueue(self._conn, paper_id=paper_id, kind="tag")
+
+    # ------------------------------------------------------------------ #
+    # tag handler (single-paper auto-tag, driven by worker queue)
+    # ------------------------------------------------------------------ #
+
+    def _run_tag(self, paper_id: int) -> None:
+        """Blocking single-paper auto-tag (called via to_thread).
+
+        Uses the same LLM + prompt as the batch tagger by running the
+        batch tagger over a 1-element list. Produces 2-5 LLM-sourced tags
+        with ``topic_id=NULL`` (single-paper auto-tag is not part of any
+        topic).
+        """
+        # Honour the user's kill switch: if the operator has turned auto-tag
+        # off since this task was enqueued, just mark it done and skip the
+        # LLM call. This keeps the queue drained without burning tokens.
+        try:
+            llm_cfg = self._get_llm_config()
+        except Exception:
+            llm_cfg = None
+        if llm_cfg is not None and not getattr(llm_cfg, "auto_tag_on_ingest", True):
+            log.info("auto-tag disabled; skipping tag task for paper_id=%s", paper_id)
+            return
+
+        paper = repository.get_paper(self._conn, paper_id)
+        if paper is None:
+            raise RuntimeError(f"paper {paper_id} vanished before tagging")
+
+        import json as _json
+        categories = (
+            _json.loads(paper["arxiv_categories_json"])
+            if paper.get("arxiv_categories_json")
+            else []
+        )
+
+        title = paper.get("title") or ""
+        abstract = paper.get("abstract") or ""
+        if not title and not abstract:
+            log.info(
+                "paper_id=%s lacks title+abstract; skipping auto-tag", paper_id
+            )
+            return
+
+        ctx = {
+            "paper_id": paper_id,
+            "full_id": paper["full_id"],
+            "title": title,
+            "abstract": abstract,
+            "arxiv_categories": categories,
+        }
+
+        client = self._get_llm_client()
+        result = tagger_module.run_batch(
+            client=client,
+            paper_ctxs=[ctx],
+            existing_top_tags=None,
+        )
+        tags = result.per_paper.get(paper_id) or []
+        if not tags:
+            log.info("auto-tag: LLM returned no tags for paper_id=%s", paper_id)
+            return
+
+        inserted = repository.add_paper_tags(
+            self._conn,
+            paper_id=paper_id,
+            tag_names=tags,
+            source="llm",
+            topic_id=None,
+        )
+        log.info(
+            "auto-tagged paper_id=%s tags=%s inserted=%d",
+            paper_id, tags, inserted,
+        )
+
     def _get_llm_client(self) -> llm_module.LLMClient:
         if self._llm_client is not None:
             return self._llm_client
@@ -290,6 +377,11 @@ class Worker:
             self._llm_error = f"LLM unavailable: {type(exc).__name__}: {exc}"
             raise
         return self._llm_client
+
+    def _get_llm_config(self) -> llm_module.LLMConfig:
+        """Always re-read llm.yaml (cheap) so operator toggles take effect
+        without restarting the agent."""
+        return llm_module.LLMConfig.load(self._cfg.paths.llm_config_file)
 
     def _get_dimensions(self) -> dim_module.DimensionsConfig:
         if self._dimensions is None:

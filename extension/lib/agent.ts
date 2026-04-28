@@ -166,6 +166,14 @@ export interface PaperClassifications {
   [dimName: string]: string[];
 }
 
+export interface PaperTag {
+  id: number;
+  name: string;
+  display_name: string | null;
+  source: 'llm' | 'user';
+  topic_id: number | null;
+}
+
 export interface PaperItem {
   id: number;
   full_id: string;
@@ -184,6 +192,7 @@ export interface PaperItem {
   classified_at: string | null;
   abs_url: string | null;
   classifications: PaperClassifications;
+  tags: PaperTag[];
 }
 
 export interface PapersResponse {
@@ -201,6 +210,8 @@ export interface FetchPapersParams {
   order?: 'asc' | 'desc';
   domain?: string;
   affiliations?: string;
+  tag?: string;
+  topic?: string;
 }
 
 export async function fetchPapers(
@@ -214,6 +225,8 @@ export async function fetchPapers(
   if (params.order) qs.set('order', params.order);
   if (params.domain) qs.set('domain', params.domain);
   if (params.affiliations) qs.set('affiliations', params.affiliations);
+  if (params.tag) qs.set('tag', params.tag);
+  if (params.topic) qs.set('topic', params.topic);
   const res = await authedFetch(`/api/papers?${qs.toString()}`, { method: 'GET' });
   if (!res.ok) {
     throw new Error(`Failed to fetch papers: ${res.status}`);
@@ -288,6 +301,7 @@ export interface LlmConfig {
   max_retries: number;
   abstract_char_limit: number;
   pdf_head_char_limit: number;
+  auto_tag_on_ingest: boolean;
   allowed_api_key_envs: string[];
   path: string;
 }
@@ -307,6 +321,7 @@ export interface LlmConfigUpdate {
   max_retries?: number;
   abstract_char_limit?: number;
   pdf_head_char_limit?: number;
+  auto_tag_on_ingest?: boolean;
 }
 
 export interface LlmTestResult {
@@ -347,4 +362,175 @@ export async function testLlmConfig(): Promise<LlmTestResult> {
     throw new Error(`LLM test endpoint error: ${res.status} ${text}`);
   }
   return (await res.json()) as LlmTestResult;
+}
+
+// --------------- Tags / topics API ---------------
+
+export interface TagSummary {
+  id: number;
+  name: string;
+  display_name: string | null;
+  count: number;
+  llm_count: number;
+  user_count: number;
+}
+
+export async function fetchTags(): Promise<TagSummary[]> {
+  const res = await authedFetch('/api/tags', { method: 'GET' });
+  if (!res.ok) throw new Error(`Failed to fetch tags: ${res.status}`);
+  const j = (await res.json()) as { items: TagSummary[] };
+  return j.items;
+}
+
+export async function fetchPaperTags(paperId: number): Promise<PaperTag[]> {
+  const res = await authedFetch(`/api/papers/${paperId}/tags`, { method: 'GET' });
+  if (!res.ok) throw new Error(`Failed to fetch tags: ${res.status}`);
+  const j = (await res.json()) as { items: PaperTag[] };
+  return j.items;
+}
+
+export interface PaperTagEditResponse {
+  paper_id: number;
+  added: number;
+  removed: number;
+  tags: PaperTag[];
+}
+
+export async function editPaperTags(
+  paperId: number,
+  payload: { add?: string[]; remove?: string[] },
+): Promise<PaperTagEditResponse> {
+  const res = await authedFetch(`/api/papers/${paperId}/tags`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to edit tags: ${res.status} ${text}`);
+  }
+  return (await res.json()) as PaperTagEditResponse;
+}
+
+export interface TopicSummary {
+  id: number;
+  slug: string;
+  name: string;
+  summary: string | null;
+  model: string | null;
+  source_job_id: string | null;
+  created_at: string;
+  paper_count: number;
+  top_tags: string[];
+}
+
+export interface TopicDetail extends TopicSummary {
+  is_archived: number;
+  papers: PaperItem[];
+}
+
+export async function fetchTopics(): Promise<TopicSummary[]> {
+  const res = await authedFetch('/api/topics', { method: 'GET' });
+  if (!res.ok) throw new Error(`Failed to fetch topics: ${res.status}`);
+  const j = (await res.json()) as { items: TopicSummary[] };
+  return j.items;
+}
+
+export async function fetchTopic(slug: string): Promise<TopicDetail> {
+  const res = await authedFetch(
+    `/api/topics/${encodeURIComponent(slug)}`,
+    { method: 'GET' },
+  );
+  if (!res.ok) throw new Error(`Failed to fetch topic: ${res.status}`);
+  return (await res.json()) as TopicDetail;
+}
+
+export async function deleteTopic(topicId: number): Promise<void> {
+  const res = await authedFetch(`/api/topics/${topicId}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to delete topic: ${res.status} ${text}`);
+  }
+}
+
+// --------------- Auto-tag jobs ---------------
+
+export interface AutoTagJobError {
+  batch_index: number;
+  paper_ids: number[];
+  message: string | null;
+}
+
+export interface AutoTagJobSnapshot {
+  job_id: string;
+  status: 'running' | 'done' | 'cancelled' | 'failed';
+  total_papers: number;
+  processed_papers: number;
+  total_batches: number;
+  processed_batches: number;
+  succeeded_batches: number;
+  failed_batches: number;
+  cancelled_batches: number;
+  batch_size: number;
+  current_batch: { index: number; paper_ids: number[] } | null;
+  errors: AutoTagJobError[];
+  topic_id: number | null;
+  topic_slug: string | null;
+  topic_name: string | null;
+  topic_summary: string | null;
+  model: string | null;
+  started_at: string;
+  updated_at: string;
+  finished_at: string | null;
+  last_error: string | null;
+}
+
+export async function startAutoTagJob(
+  paperIds: number[],
+): Promise<AutoTagJobSnapshot> {
+  const body: Record<string, unknown> = { paper_ids: paperIds };
+  const res = await authedFetch('/api/tags/auto', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to start auto-tag: ${res.status} ${text}`);
+  }
+  return (await res.json()) as AutoTagJobSnapshot;
+}
+
+export async function fetchAutoTagJob(
+  jobId: string,
+): Promise<AutoTagJobSnapshot> {
+  const res = await authedFetch(
+    `/api/tags/auto/${encodeURIComponent(jobId)}`,
+    { method: 'GET' },
+  );
+  if (!res.ok) throw new Error(`Failed to poll auto-tag job: ${res.status}`);
+  return (await res.json()) as AutoTagJobSnapshot;
+}
+
+export async function cancelAutoTagJob(jobId: string): Promise<void> {
+  const res = await authedFetch(
+    `/api/tags/auto/${encodeURIComponent(jobId)}`,
+    { method: 'DELETE' },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to cancel auto-tag job: ${res.status} ${text}`);
+  }
+}
+
+export async function retryAutoTagJob(
+  jobId: string,
+): Promise<AutoTagJobSnapshot> {
+  const res = await authedFetch(
+    `/api/tags/auto/${encodeURIComponent(jobId)}/retry`,
+    { method: 'POST' },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to retry auto-tag job: ${res.status} ${text}`);
+  }
+  return (await res.json()) as AutoTagJobSnapshot;
 }

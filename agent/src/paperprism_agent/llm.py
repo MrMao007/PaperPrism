@@ -68,6 +68,7 @@ class LLMConfig:
     max_retries: int
     abstract_char_limit: int
     pdf_head_char_limit: int
+    auto_tag_on_ingest: bool = True
 
     @classmethod
     def load(cls, path: Path) -> "LLMConfig":
@@ -89,6 +90,7 @@ class LLMConfig:
                 max_retries=int(raw.get("max_retries", 2)),
                 abstract_char_limit=int(raw.get("abstract_char_limit", 2000)),
                 pdf_head_char_limit=int(raw.get("pdf_head_char_limit", 1500)),
+                auto_tag_on_ingest=bool(raw.get("auto_tag_on_ingest", True)),
             )
         except KeyError as exc:
             raise LLMConfigError(f"LLM config missing required key: {exc}") from exc

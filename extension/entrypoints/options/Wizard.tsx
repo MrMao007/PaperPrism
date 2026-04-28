@@ -69,6 +69,7 @@ export default function Wizard({ onComplete }: WizardProps) {
         max_retries: 2,
         abstract_char_limit: 2000,
         pdf_head_char_limit: 1500,
+        auto_tag_on_ingest: true,
         ...(keyPlain && p.api_key_env ? { api_key: keyPlain } : {}),
       });
     } catch (err) {

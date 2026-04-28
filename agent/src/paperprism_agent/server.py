@@ -29,7 +29,7 @@ from fastapi.responses import FileResponse
 
 from paperprism_agent import __version__
 from paperprism_agent import db as db_module
-from paperprism_agent import repository, tasks
+from paperprism_agent import auto_tag_jobs, repository, tasks
 from paperprism_agent.config import Config
 from paperprism_agent.ingest import handle_ingest, handle_upload
 from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
@@ -169,12 +169,15 @@ def create_app(cfg: Config) -> FastAPI:
         order: str = Query("desc", description="asc or desc"),
         domain: str | None = Query(None, description="Filter by domain"),
         affiliations: str | None = Query(None, description="Filter by affiliation"),
+        tag: str | None = Query(None, description="Filter by tag name"),
+        topic: str | None = Query(None, description="Filter by topic slug"),
     ) -> dict:
         conn = db_module.connect(cfg.paths.db_file)
         items, total = repository.list_papers(
             conn, limit=limit, offset=offset,
             q=q, sort=sort, order=order,
             domain=domain, affiliations=affiliations,
+            tag=tag, topic_slug=topic,
         )
         return {
             "items": items,
@@ -344,6 +347,7 @@ def create_app(cfg: Config) -> FastAPI:
             "max_retries": int(raw.get("max_retries", 2)),
             "abstract_char_limit": int(raw.get("abstract_char_limit", 2000)),
             "pdf_head_char_limit": int(raw.get("pdf_head_char_limit", 1500)),
+            "auto_tag_on_ingest": bool(raw.get("auto_tag_on_ingest", True)),
             "allowed_api_key_envs": sorted(secret_allowlist()),
             "path": str(path),
         }
@@ -380,6 +384,7 @@ def create_app(cfg: Config) -> FastAPI:
                 "max_retries": int(payload.get("max_retries", 2)),
                 "abstract_char_limit": int(payload.get("abstract_char_limit", 2000)),
                 "pdf_head_char_limit": int(payload.get("pdf_head_char_limit", 1500)),
+                "auto_tag_on_ingest": bool(payload.get("auto_tag_on_ingest", True)),
             }
         except KeyError as exc:
             raise HTTPException(400, detail=f"missing field: {exc}")
@@ -437,6 +442,169 @@ def create_app(cfg: Config) -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             log.exception("llm test failed")
             return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+
+    # ---------------- Tags ----------------
+
+    @app.get("/api/tags")
+    def list_tags_endpoint() -> dict:
+        conn = db_module.connect(cfg.paths.db_file)
+        return {"items": repository.list_tags(conn)}
+
+    @app.get("/api/papers/{paper_id}/tags")
+    def get_paper_tags_endpoint(paper_id: int) -> dict:
+        conn = db_module.connect(cfg.paths.db_file)
+        paper = repository.get_paper(conn, paper_id)
+        if paper is None:
+            raise HTTPException(status_code=404, detail=f"paper {paper_id} not found")
+        return {"items": repository.get_tags_for_paper(conn, paper_id)}
+
+    @app.post(
+        "/api/papers/{paper_id}/tags",
+        dependencies=[Depends(require_token)],
+    )
+    def edit_paper_tags_endpoint(paper_id: int, payload: dict) -> dict:
+        """Body: ``{"add": ["tag-a"], "remove": ["tag-b"]}``.
+
+        Both arrays are optional. Tags are normalised (lowercase /
+        hyphenated). User-edited tags are stored with source='user'
+        (upgrading any prior llm-added row).
+        """
+        if not isinstance(payload, dict):
+            raise HTTPException(400, detail="body must be a JSON object")
+        add = payload.get("add") or []
+        remove = payload.get("remove") or []
+        if not isinstance(add, list) or not isinstance(remove, list):
+            raise HTTPException(400, detail="'add' / 'remove' must be lists of strings")
+        conn = db_module.connect(cfg.paths.db_file)
+        paper = repository.get_paper(conn, paper_id)
+        if paper is None:
+            raise HTTPException(status_code=404, detail=f"paper {paper_id} not found")
+        added = 0
+        if add:
+            added = repository.add_paper_tags(
+                conn, paper_id=paper_id, tag_names=add, source="user", topic_id=None,
+            )
+        removed = 0
+        for name in remove:
+            if repository.remove_paper_tag(conn, paper_id=paper_id, tag_name=str(name)):
+                removed += 1
+        return {
+            "paper_id": paper_id,
+            "added": added,
+            "removed": removed,
+            "tags": repository.get_tags_for_paper(conn, paper_id),
+        }
+
+    # ---------------- Topics ----------------
+
+    @app.get("/api/topics")
+    def list_topics_endpoint() -> dict:
+        conn = db_module.connect(cfg.paths.db_file)
+        return {"items": repository.list_topics(conn)}
+
+    @app.get("/api/topics/{slug}")
+    def get_topic_endpoint(slug: str) -> dict:
+        conn = db_module.connect(cfg.paths.db_file)
+        topic = repository.get_topic_by_slug(conn, slug)
+        if topic is None:
+            raise HTTPException(status_code=404, detail=f"topic {slug} not found")
+        items, total = repository.list_papers(
+            conn,
+            limit=500,
+            offset=0,
+            topic_slug=slug,
+            sort="published_at",
+            order="desc",
+        )
+        topic["papers"] = items
+        topic["paper_count"] = total
+        return topic
+
+    @app.delete(
+        "/api/topics/{topic_id}",
+        dependencies=[Depends(require_token)],
+    )
+    def delete_topic_endpoint(topic_id: int) -> dict:
+        conn = db_module.connect(cfg.paths.db_file)
+        ok = repository.delete_topic(conn, topic_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail=f"topic {topic_id} not found")
+        return {"deleted": True, "topic_id": topic_id}
+
+    # ---------------- Auto-tag jobs ----------------
+
+    @app.post(
+        "/api/tags/auto",
+        dependencies=[Depends(require_token)],
+    )
+    async def create_auto_tag_job(payload: dict) -> dict:
+        """Body: ``{"paper_ids": [1,2,3]}``.
+
+        ``batch_size`` (optional, advanced) also accepted but not exposed in the
+        UI; defaults to 15. The resulting topic surfaces every tag its papers
+        received (no truncation).
+
+        Returns the initial job snapshot; clients poll GET /api/tags/auto/{id}.
+        """
+        if not isinstance(payload, dict):
+            raise HTTPException(400, detail="body must be a JSON object")
+        raw_ids = payload.get("paper_ids")
+        if not isinstance(raw_ids, list) or not raw_ids:
+            raise HTTPException(400, detail="'paper_ids' must be a non-empty list")
+        try:
+            paper_ids = [int(x) for x in raw_ids]
+        except (TypeError, ValueError):
+            raise HTTPException(400, detail="paper_ids must be integers")
+        batch_size = payload.get("batch_size")
+        if batch_size is not None:
+            try:
+                batch_size = int(batch_size)
+            except (TypeError, ValueError):
+                raise HTTPException(400, detail="batch_size must be an integer")
+            if batch_size < 1 or batch_size > 100:
+                raise HTTPException(400, detail="batch_size must be in [1, 100]")
+
+        conn = db_module.connect(cfg.paths.db_file)
+        try:
+            job = auto_tag_jobs.create_job(
+                cfg=cfg,
+                conn=conn,
+                paper_ids=paper_ids,
+                batch_size=batch_size,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, detail=str(exc))
+        return job.snapshot()
+
+    @app.get("/api/tags/auto/{job_id}")
+    def get_auto_tag_job(job_id: str) -> dict:
+        job = auto_tag_jobs.get_job(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"job {job_id} not found")
+        return job.snapshot()
+
+    @app.delete(
+        "/api/tags/auto/{job_id}",
+        dependencies=[Depends(require_token)],
+    )
+    async def cancel_auto_tag_job(job_id: str) -> dict:
+        ok = await auto_tag_jobs.cancel_job(job_id)
+        if not ok:
+            job = auto_tag_jobs.get_job(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail=f"job {job_id} not found")
+            return {"cancelled": False, "status": job.status}
+        return {"cancelled": True}
+
+    @app.post(
+        "/api/tags/auto/{job_id}/retry",
+        dependencies=[Depends(require_token)],
+    )
+    async def retry_auto_tag_job(job_id: str) -> dict:
+        job = await auto_tag_jobs.retry_failed(cfg=cfg, job_id=job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"job {job_id} not found")
+        return job.snapshot()
 
     return app
 
