@@ -15,7 +15,7 @@ choice. No papers ever leave your machine.
 ### macOS — one line
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/paperprism/PaperPrism/main/packaging/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
 ```
 
 This downloads the latest `paperprism-agent` binary from GitHub Releases,
@@ -25,14 +25,14 @@ at login. Override the install prefix via `PAPERPRISM_PREFIX=...`.
 ### macOS — .pkg installer
 
 Download `paperprism-agent-<version>-macos-<arch>.pkg` from the
-[Releases page](https://github.com/paperprism/PaperPrism/releases) and
+[Releases page](https://github.com/MrMao007/PaperPrism/releases) and
 double-click. The installer places the binary under `/usr/local` and
 registers the LaunchAgent for your account automatically.
 
 ### macOS / Linux — Homebrew
 
 ```bash
-brew tap paperprism/paperprism
+brew tap MrMao007/paperprism
 brew install paperprism-agent
 brew services start paperprism-agent
 ```
@@ -40,7 +40,7 @@ brew services start paperprism-agent
 ### Linux — one line
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/paperprism/PaperPrism/main/packaging/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
 ```
 
 Auto-start on Linux is not yet wired up — run `paperprism-agent serve`
@@ -52,7 +52,7 @@ manually or set up a systemd user unit.
 source:
 
 ```bash
-pip install git+https://github.com/paperprism/PaperPrism#subdirectory=agent
+pip install git+https://github.com/MrMao007/PaperPrism#subdirectory=agent
 paperprism-agent serve
 ```
 

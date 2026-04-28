@@ -14,12 +14,12 @@
 #
 # Environment overrides:
 #   PAPERPRISM_VERSION   pin to a specific tag, e.g. v0.1.0 (default: latest)
-#   PAPERPRISM_REPO      GitHub repo, default paperprism/PaperPrism
+#   PAPERPRISM_REPO      GitHub repo, default MrMao007/PaperPrism
 #   PAPERPRISM_PREFIX    install prefix (default: $HOME/.local)
 
 set -euo pipefail
 
-REPO="${PAPERPRISM_REPO:-paperprism/PaperPrism}"
+REPO="${PAPERPRISM_REPO:-MrMao007/PaperPrism}"
 PREFIX="${PAPERPRISM_PREFIX:-${HOME}/.local}"
 VERSION="${PAPERPRISM_VERSION:-latest}"
 
