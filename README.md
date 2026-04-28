@@ -24,10 +24,16 @@ at login. Override the install prefix via `PAPERPRISM_PREFIX=...`.
 
 ### macOS — .pkg installer
 
-Download `paperprism-agent-<version>-macos-<arch>.pkg` from the
+Download `paperprism-agent-<version>-macos-arm64.pkg` from the
 [Releases page](https://github.com/MrMao007/PaperPrism/releases) and
 double-click. The installer places the binary under `/usr/local` and
 registers the LaunchAgent for your account automatically.
+
+> **Intel Macs (pre-2020)**: we no longer ship a native x86_64 binary
+> (GitHub's Intel CI runners are being retired). Intel Macs can still run
+> the arm64 `.pkg` via Rosetta 2 (`softwareupdate --install-rosetta`), or
+> install from source with `pip install -e agent/` and
+> `paperprism-agent install`.
 
 ### macOS / Linux — Homebrew
 
@@ -209,9 +215,11 @@ bash packaging/macos/build_pkg.sh 0.1.0
 ```
 
 The CI workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml)
-does the same build across macOS (arm64 + x86_64) and Linux (arm64 + x86_64)
+does the same build across macOS (arm64 only) and Linux (arm64 + x86_64)
 whenever you push a `v*` tag, and attaches tarballs + `.pkg` to a GitHub
-Release automatically.
+Release automatically. (Intel macOS native builds were dropped because
+GitHub's `macos-13` runner pool is being retired; Intel Macs run the
+arm64 binary via Rosetta 2.)
 
 ## Project layout
 

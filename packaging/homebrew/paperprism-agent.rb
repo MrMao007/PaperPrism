@@ -20,12 +20,18 @@ class PaperprismAgent < Formula
   license "MIT"
 
   on_macos do
+    # We publish only an arm64 build for macOS; Intel Macs run it via
+    # Rosetta 2 (Homebrew automatically downloads arm64 bottles on Intel
+    # when an on_intel branch is absent, but we leave an explicit fallback
+    # below for clarity).
     on_arm do
       url "https://github.com/paperprism/PaperPrism/releases/download/v#{version}/paperprism-agent-macos-arm64.tar.gz"
       sha256 "REPLACE_WITH_SHA256_FROM_RELEASE_ASSET"
     end
     on_intel do
-      url "https://github.com/paperprism/PaperPrism/releases/download/v#{version}/paperprism-agent-macos-x86_64.tar.gz"
+      # Run the arm64 binary under Rosetta 2. Users may need:
+      #   softwareupdate --install-rosetta --agree-to-license
+      url "https://github.com/paperprism/PaperPrism/releases/download/v#{version}/paperprism-agent-macos-arm64.tar.gz"
       sha256 "REPLACE_WITH_SHA256_FROM_RELEASE_ASSET"
     end
   end

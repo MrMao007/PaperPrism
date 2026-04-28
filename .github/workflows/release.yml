@@ -22,13 +22,13 @@ jobs:
       matrix:
         include:
           - target: macos-arm64
-            os: macos-14      # Apple Silicon runner
+            os: macos-14      # Apple Silicon runner (covers both arm64 Macs and Intel Macs via Rosetta 2)
             asset_os: macos
             asset_arch: arm64
-          - target: macos-x86_64
-            os: macos-13      # Intel runner
-            asset_os: macos
-            asset_arch: x86_64
+          # NOTE: macOS Intel (x86_64) build removed -- GitHub's `macos-13`
+          # runner pool is being retired and jobs routinely queue for 30min+
+          # without a runner. Intel Mac users can run the arm64 binary via
+          # Rosetta 2 or install from source (`pip install -e agent/`).
           - target: linux-x86_64
             os: ubuntu-22.04
             asset_os: linux

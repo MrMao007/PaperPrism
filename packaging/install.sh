@@ -43,6 +43,15 @@ case "${uname_m}" in
     *)             die "Unsupported arch: ${uname_m}" ;;
 esac
 
+# We no longer ship a native macOS x86_64 binary (GitHub's Intel CI runner
+# pool is retired). Intel Macs transparently run the arm64 build via
+# Rosetta 2, so fall back to the arm64 asset automatically.
+if [ "${OS}" = "macos" ] && [ "${ARCH}" = "x86_64" ]; then
+    warn "No native Intel macOS build is published; using the arm64 binary via Rosetta 2."
+    warn "If Rosetta 2 is not installed yet, run: softwareupdate --install-rosetta --agree-to-license"
+    ARCH="arm64"
+fi
+
 log "Platform: ${OS}-${ARCH}"
 
 # ---------- resolve release asset URL ----------
