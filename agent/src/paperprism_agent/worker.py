@@ -142,52 +142,77 @@ class Worker:
         if paper is None:
             raise RuntimeError(f"paper {paper_id} vanished before enrichment")
 
-        # 1) arxiv API --------------------------------------------------
-        query_id = paper["full_id"]   # versioned if we have one
-        meta = arxiv_client.fetch_by_id(query_id)
-
-        # 2) PDF head ---------------------------------------------------
         pdf_path = Path(paper["pdf_path"])
-        head = pdf.read_head(pdf_path, pages=1)
+        head = pdf.read_head(pdf_path, pages=2)
 
-        # 3) code URL: prefer abstract, fall back to comment + pdf ------
+        # 1) arxiv API (skipped for user-uploaded non-arxiv PDFs) ----------
+        query_id = paper["full_id"]   # versioned if we have one
+        meta = None
+        if pdf.looks_like_arxiv_id(query_id):
+            try:
+                meta = arxiv_client.fetch_by_id(query_id)
+            except Exception as exc:
+                # Non-fatal: fall through to PDF-only enrichment.
+                log.warning(
+                    "arxiv fetch failed for %s (%s); falling back to PDF-only",
+                    query_id, exc,
+                )
+                meta = None
+
+        if meta is None:
+            # PDF-only path: derive title / abstract from the first page.
+            title, abstract = pdf.extract_title_abstract(head.text)
+            authors: list[str] = []
+            categories: list[str] = []
+            published_at = None
+            updated_at = None
+            journal_ref = None
+            affiliations: list[str] = []
+            comment = None
+        else:
+            title = meta.title
+            abstract = meta.abstract
+            authors = meta.authors
+            categories = meta.categories or []
+            published_at = meta.published_at
+            updated_at = meta.updated_at
+            journal_ref = meta.journal_ref
+            affiliations = meta.affiliations or []
+            comment = meta.comment
+
+        # 2) code URL: scan all the text we have --------------------------
         code_url = pdf.find_code_url(
-            meta.abstract or "",
-            meta.comment or "",
+            abstract or "",
+            comment or "",
             head.text or "",
         )
 
-        # 4) venue hint (raw for now; P2.3 LLM will normalize) ----------
-        #    prefer journal_ref since it's the author-attested field.
-        venue = meta.journal_ref or meta.comment or None
+        # 3) venue hint -----------------------------------------------------
+        venue = journal_ref or comment or None
 
-        # 5) affiliations: only the author-declared ones from arxiv.
-        #    LLM-from-PDF path is P2.3; leave None if empty.
-        affiliations = meta.affiliations or None
-
-        # 6) write ------------------------------------------------------
+        # 4) write ----------------------------------------------------------
         repository.mark_enriched(
             self._conn,
             paper_id=paper_id,
-            title=meta.title,
-            authors=meta.authors or None,
-            abstract=meta.abstract,
-            categories=meta.categories or None,
-            published_at=meta.published_at,
-            updated_at_arxiv=meta.updated_at,
+            title=title,
+            authors=authors or None,
+            abstract=abstract,
+            categories=categories or None,
+            published_at=published_at,
+            updated_at_arxiv=updated_at,
             venue=venue,
             code_url=code_url,
-            affiliations=affiliations,
+            affiliations=affiliations or None,
         )
 
-        # 7) queue classify step (P2.3 will consume it)
+        # 5) queue classify step -------------------------------------------
         tasks.enqueue(self._conn, paper_id=paper_id, kind="classify")
 
         log.info(
-            "enriched paper_id=%s title=%r authors=%s code_url=%s",
+            "enriched paper_id=%s arxiv=%s title=%r code_url=%s",
             paper_id,
-            (meta.title or "")[:60],
-            len(meta.authors),
+            meta is not None,
+            (title or "")[:60],
             code_url,
         )
 

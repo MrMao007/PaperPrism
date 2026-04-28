@@ -24,6 +24,18 @@
 #
 # 3) Azure / OpenRouter / DeepInfra: set `api_base` accordingly and point
 #    `api_key_env` at whichever env var holds the key.
+#
+# 4) Anthropic (Claude) -- native SDK, no OpenAI-compatible endpoint:
+#      provider: anthropic
+#      model: claude-3-5-sonnet-latest
+#      api_base: null              # uses api.anthropic.com
+#      api_key_env: ANTHROPIC_API_KEY
+#
+# 5) Google Gemini via the official OpenAI-compatible endpoint:
+#      provider: openai
+#      model: gemini-2.0-flash
+#      api_base: https://generativelanguage.googleapis.com/v1beta/openai/
+#      api_key_env: GEMINI_API_KEY
 
 version: 1
 

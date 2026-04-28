@@ -23,7 +23,7 @@ from contextlib import asynccontextmanager
 from importlib import resources as pkg_resources
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -31,9 +31,14 @@ from paperprism_agent import __version__
 from paperprism_agent import db as db_module
 from paperprism_agent import repository, tasks
 from paperprism_agent.config import Config
-from paperprism_agent.ingest import handle_ingest
+from paperprism_agent.ingest import handle_ingest, handle_upload
 from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
-from paperprism_agent.models import HealthResponse, IngestRequest, IngestResponse
+from paperprism_agent.models import (
+    HealthResponse,
+    IngestRequest,
+    IngestResponse,
+    UploadIngestResponse,
+)
 from paperprism_agent.worker import Worker
 
 log = logging.getLogger("paperprism.server")
@@ -118,6 +123,34 @@ def create_app(cfg: Config) -> FastAPI:
     def ingest(req: IngestRequest, request: Request) -> IngestResponse:
         cfg_local: Config = request.app.state.cfg
         return handle_ingest(cfg_local, req)
+
+    @app.post(
+        "/api/ingest/upload",
+        response_model=UploadIngestResponse,
+        dependencies=[Depends(require_token)],
+    )
+    async def ingest_upload(
+        request: Request,
+        file: UploadFile = File(...),
+        source_hint: str | None = Form(default=None),
+    ) -> UploadIngestResponse:
+        """Ingest a single user-supplied PDF (Dashboard bulk-folder import).
+
+        Content-Type: multipart/form-data. The browser can't give us an OS
+        path, so we accept the raw bytes and dedupe by sha256.
+        """
+        cfg_local: Config = request.app.state.cfg
+        try:
+            data = await file.read()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"could not read upload: {exc}")
+        filename = file.filename or "upload.pdf"
+        return handle_upload(
+            cfg_local,
+            file_bytes=data,
+            filename=filename,
+            source_hint=source_hint,
+        )
 
     @app.get("/")
     def root() -> dict:

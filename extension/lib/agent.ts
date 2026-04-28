@@ -46,6 +46,20 @@ export interface IngestResponse {
   message?: string;
 }
 
+/** Response shape for POST /api/ingest/upload (bulk folder import). */
+export interface UploadIngestResponse {
+  accepted: boolean;
+  paperId?: number;
+  fullId?: string;
+  arxivId?: string;
+  duplicate: boolean;
+  vaultPath?: string;
+  title?: string;
+  /** 'queued' | 'duplicate' | 'rejected' */
+  status?: string;
+  message?: string;
+}
+
 export class AgentUnavailableError extends Error {
   constructor(message: string) {
     super(message);
@@ -94,6 +108,52 @@ export async function sendIngest(
     throw new Error(`Agent rejected ingest: ${res.status} ${text}`);
   }
   return (await res.json()) as IngestResponse;
+}
+
+/**
+ * Upload a single PDF (File from a <input type="file" webkitdirectory>)
+ * to the Agent. The Agent saves it into the vault, auto-detects an arxiv
+ * id if the first page contains one, and enqueues enrich + classify.
+ *
+ * Notes:
+ *   - Do NOT force a Content-Type header; the browser must append the
+ *     multipart boundary automatically.
+ *   - AbortSignal makes it possible to cancel an in-flight upload when
+ *     the user closes the progress modal mid-batch.
+ */
+export async function uploadPdfToAgent(
+  file: File,
+  opts: { sourceHint?: string; signal?: AbortSignal } = {},
+): Promise<UploadIngestResponse> {
+  const { agentBaseUrl, agentToken } = await loadSettings();
+  const url = `${agentBaseUrl.replace(/\/$/, '')}/api/ingest/upload`;
+
+  const form = new FormData();
+  form.append('file', file, file.name);
+  if (opts.sourceHint) form.append('source_hint', opts.sourceHint);
+
+  const headers: Record<string, string> = {};
+  if (agentToken) headers['X-PaperPrism-Token'] = agentToken;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      body: form,
+      headers,
+      signal: opts.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw err;
+    throw new AgentUnavailableError(
+      `Local Agent unreachable at ${url}: ${(err as Error).message}`,
+    );
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Upload failed: ${res.status} ${text}`);
+  }
+  return (await res.json()) as UploadIngestResponse;
 }
 
 export async function getDashboardUrl(): Promise<string> {

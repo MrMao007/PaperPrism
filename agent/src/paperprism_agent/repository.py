@@ -195,6 +195,19 @@ def get_paper(conn: sqlite3.Connection, paper_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def find_paper_by_sha256(
+    conn: sqlite3.Connection, sha256: str
+) -> dict | None:
+    """Return the first paper matching ``sha256`` or None. Used by the
+    upload endpoint to avoid re-ingesting the same PDF twice."""
+    if not sha256:
+        return None
+    row = conn.execute(
+        "SELECT * FROM papers WHERE sha256 = ? LIMIT 1", (sha256,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def delete_paper(conn: sqlite3.Connection, paper_id: int) -> bool:
     """Delete a paper and its related tasks/classifications (FK CASCADE).
     Returns True if a row was actually removed."""

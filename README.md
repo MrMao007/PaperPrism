@@ -193,6 +193,7 @@ npm run compile                       # type-check without emit
 | `npm install` warns about type errors | Run once then retry — WXT generates `.wxt/tsconfig.json` on `postinstall`. |
 | Wizard **Save & Test** fails | Open `~/.paperprism/logs/agent.log`; the LLM error (401 / 404 / timeout) is usually obvious. |
 | Changed code in `agent/` but Agent still runs old version | `paperprism-agent restart` — `pip install -e .` only links source, but the already-loaded process keeps old imports. |
+| Agent fails to start with `Form data requires "python-multipart"` (or any other `ModuleNotFoundError`) | You added a new entry under `[project].dependencies` in `agent/pyproject.toml` but didn't re-sync the venv. Inside the activated venv run `pip install -e .` again (editable install only links source, it does **not** auto-install newly declared deps). |
 | Chrome shows "This extension may soon no longer be supported" | You built an MV2 artifact by accident; make sure you loaded `.output/chrome-mv3/`, not any zipped older build. |
 
 ## Build a release locally

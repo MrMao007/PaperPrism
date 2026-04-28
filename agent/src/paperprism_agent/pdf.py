@@ -39,6 +39,26 @@ _REPO_RE = re.compile(
 # Catch trailing punctuation that LaTeX PDFs often glue onto URLs.
 _TRAILING_JUNK = ".,);]}>"
 
+# Matches modern (YYMM.NNNNN[vN]) or legacy (archive/YYMMNNN[vN]) arxiv ids
+# that a PDF header typically stamps on the first page.
+_ARXIV_ID_RE = re.compile(
+    r"""
+    (?:arXiv:\s*)?
+    (
+        \d{4}\.\d{4,5}(?:v\d+)?          # modern form 2401.08281 / 2401.08281v2
+        |
+        [a-z][a-z\-\.]+/\d{7}(?:v\d+)?   # legacy form cs.LG/0512001
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+# Shape-level guard used by the worker to decide whether to hit arxiv.org.
+_ARXIV_SHAPE_RE = re.compile(
+    r"^(?:\d{4}\.\d{4,5}(?:v\d+)?|[a-z][a-z\-\.]+/\d{7}(?:v\d+)?)$",
+    re.IGNORECASE,
+)
+
 
 @dataclass
 class PdfHead:
@@ -88,3 +108,81 @@ def find_code_url(*texts: str) -> str | None:
             url = m.group(0).rstrip(_TRAILING_JUNK)
             return url
     return None
+
+
+def extract_arxiv_id(*texts: str) -> str | None:
+    """Return the first arxiv id found across the given text blobs, or None.
+
+    Useful when a user-supplied PDF had its abstract-page arxiv stamp but
+    no structured metadata on the caller side.
+    """
+    for blob in texts:
+        if not blob:
+            continue
+        m = _ARXIV_ID_RE.search(blob)
+        if m:
+            return m.group(1)
+    return None
+
+
+def looks_like_arxiv_id(full_id: str | None) -> bool:
+    """Cheap shape check -- True if ``full_id`` could be queried on arxiv."""
+    if not full_id:
+        return False
+    return bool(_ARXIV_SHAPE_RE.match(full_id.strip()))
+
+
+def extract_title_abstract(text: str) -> tuple[str | None, str | None]:
+    """Heuristic title + abstract extraction from a PDF first-page text blob.
+
+    Intended for papers that don't have an arxiv id (user's legacy folder
+    of PDFs). Good enough to feed the LLM classifier; not exact science.
+    """
+    if not text:
+        return None, None
+
+    lines = [ln.strip() for ln in text.splitlines()]
+    non_empty = [ln for ln in lines if ln]
+
+    # --- Title: first "headline-ish" line (skip pure running headers). ---
+    title: str | None = None
+    for ln in non_empty[:15]:
+        # Skip lines that look like running headers / submission stamps.
+        if len(ln) < 6 or len(ln) > 300:
+            continue
+        low = ln.lower()
+        if low.startswith("arxiv:") or low.startswith("preprint"):
+            continue
+        # Avoid pure footer page numbers etc.
+        if ln.count(" ") == 0 and not any(c.isalpha() for c in ln):
+            continue
+        title = ln
+        break
+
+    # --- Abstract: text after an "Abstract" heading, else first long block. ---
+    abstract: str | None = None
+    lower_text = text.lower()
+    anchor = lower_text.find("abstract")
+    if anchor >= 0:
+        # Grab up to 3000 chars after the word "abstract" for classifier.
+        chunk = text[anchor + len("abstract"):].lstrip(" :.\n\r\t-—")
+        # Stop at "1 Introduction" / "Introduction" / references cue.
+        for stop in ("\n1 Introduction", "\n1. Introduction", "\nIntroduction",
+                     "\nKeywords", "\nReferences"):
+            cut = chunk.find(stop)
+            if cut > 0:
+                chunk = chunk[:cut]
+                break
+        abstract = " ".join(chunk.split())[:3000] or None
+    else:
+        # Fall back to the first big paragraph (>=150 chars).
+        buf: list[str] = []
+        for ln in non_empty[1:]:
+            if len(ln) > 30:
+                buf.append(ln)
+            if sum(len(x) for x in buf) > 400:
+                break
+        joined = " ".join(buf).strip()
+        abstract = joined[:3000] if len(joined) >= 150 else None
+
+    return title, abstract

@@ -5,14 +5,49 @@ import {
   deletePaper,
   openPaperPdf,
   pingAgent,
+  uploadPdfToAgent,
   type PaperItem,
   type FetchPapersParams,
   type DimensionValues,
+  type UploadIngestResponse,
 } from '@/lib/agent';
 
 const PAGE_SIZE = 20;
 type SortField = 'ingested_at' | 'published_at' | 'title';
 type SortOrder = 'asc' | 'desc';
+
+interface ImportError {
+  name: string;
+  message: string;
+}
+
+interface ImportState {
+  open: boolean;
+  running: boolean;
+  total: number;
+  processed: number;
+  succeeded: number;
+  duplicate: number;
+  failed: number;
+  currentName: string;
+  errors: ImportError[];
+  aborted: boolean;
+  finished: boolean;
+}
+
+const INITIAL_IMPORT_STATE: ImportState = {
+  open: false,
+  running: false,
+  total: 0,
+  processed: 0,
+  succeeded: 0,
+  duplicate: 0,
+  failed: 0,
+  currentName: '',
+  errors: [],
+  aborted: false,
+  finished: false,
+};
 
 export default function App() {
   const [items, setItems] = useState<PaperItem[]>([]);
@@ -31,6 +66,9 @@ export default function App() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [importState, setImportState] = useState<ImportState>(INITIAL_IMPORT_STATE);
+  const importAbortRef = useRef<AbortController | null>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Debounce search
   useEffect(() => {
@@ -140,6 +178,94 @@ export default function App() {
     }
   }, []);
 
+  // ---------------- Folder import ----------------
+
+  function pickFolder() {
+    // Reset value so picking the same folder twice still fires onChange.
+    if (folderInputRef.current) folderInputRef.current.value = '';
+    folderInputRef.current?.click();
+  }
+
+  const runImport = useCallback(async (files: File[]) => {
+    const abort = new AbortController();
+    importAbortRef.current = abort;
+    setImportState({
+      ...INITIAL_IMPORT_STATE,
+      open: true,
+      running: true,
+      total: files.length,
+    });
+
+    let succeeded = 0;
+    let duplicate = 0;
+    let failed = 0;
+    const errors: ImportError[] = [];
+
+    for (let i = 0; i < files.length; i++) {
+      if (abort.signal.aborted) break;
+      const f = files[i];
+      setImportState((s) => ({ ...s, currentName: f.name, processed: i }));
+
+      try {
+        const res: UploadIngestResponse = await uploadPdfToAgent(f, {
+          sourceHint: (f as any).webkitRelativePath || f.name,
+          signal: abort.signal,
+        });
+        if (res.duplicate) duplicate += 1;
+        else if (res.accepted) succeeded += 1;
+        else {
+          failed += 1;
+          errors.push({ name: f.name, message: res.message ?? 'rejected' });
+        }
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') break;
+        failed += 1;
+        errors.push({ name: f.name, message: (err as Error).message });
+      }
+
+      setImportState((s) => ({
+        ...s,
+        processed: i + 1,
+        succeeded,
+        duplicate,
+        failed,
+        errors,
+      }));
+    }
+
+    const aborted = abort.signal.aborted;
+    setImportState((s) => ({
+      ...s,
+      running: false,
+      finished: true,
+      aborted,
+      currentName: '',
+    }));
+    importAbortRef.current = null;
+
+    // Papers list will now have new/updated rows -- refresh once on finish.
+    loadPapers().catch(() => {});
+  }, [loadPapers]);
+
+  function onFolderPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const all = Array.from(e.target.files ?? []);
+    const pdfs = all.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfs.length === 0) {
+      window.alert('No PDF files found under the selected folder.');
+      return;
+    }
+    runImport(pdfs);
+  }
+
+  function cancelImport() {
+    importAbortRef.current?.abort();
+  }
+
+  function closeImportPanel() {
+    if (importState.running) return;
+    setImportState(INITIAL_IMPORT_STATE);
+  }
+
   return (
     <div className="db-root">
       {/* Header */}
@@ -179,6 +305,24 @@ export default function App() {
             <option key={v} value={v}>{v}</option>
           ))}
         </select>
+        <button
+          type="button"
+          className="db-import-btn"
+          onClick={pickFolder}
+          disabled={importState.running}
+          title="Import all PDFs from a local folder"
+        >
+          {importState.running ? 'Importing...' : 'Import folder'}
+        </button>
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={onFolderPicked}
+          // webkitdirectory is non-standard but works in Chrome/Edge.
+          {...({ webkitdirectory: '', directory: '' } as any)}
+        />
       </div>
 
       {/* Table */}
@@ -246,6 +390,98 @@ export default function App() {
           Next
         </button>
       </div>
+
+      {importState.open && (
+        <ImportPanel
+          state={importState}
+          onCancel={cancelImport}
+          onClose={closeImportPanel}
+        />
+      )}
+    </div>
+  );
+}
+
+function ImportPanel({
+  state,
+  onCancel,
+  onClose,
+}: {
+  state: ImportState;
+  onCancel: () => void;
+  onClose: () => void;
+}) {
+  const pct =
+    state.total > 0 ? Math.min(100, Math.round((state.processed / state.total) * 100)) : 0;
+  const showErrors = state.errors.slice(-5);
+
+  return (
+    <div className="db-import-backdrop" role="dialog" aria-modal="true">
+      <div className="db-import-panel">
+        <div className="db-import-head">
+          <h2 className="db-import-title">Import folder</h2>
+          {!state.running && (
+            <button type="button" className="db-import-x" onClick={onClose} aria-label="Close">
+              ×
+            </button>
+          )}
+        </div>
+
+        <div className="db-import-progressbar">
+          <div className="db-import-progressbar-fill" style={{ width: `${pct}%` }} />
+        </div>
+        <div className="db-import-progress-label">
+          {state.running
+            ? `${state.processed} / ${state.total} (${pct}%)`
+            : state.aborted
+              ? `Cancelled after ${state.processed} of ${state.total}`
+              : `Done — processed ${state.processed} of ${state.total}`}
+        </div>
+
+        {state.running && state.currentName && (
+          <div className="db-import-current" title={state.currentName}>
+            Current: {state.currentName}
+          </div>
+        )}
+
+        <div className="db-import-stats">
+          <span className="db-import-stat db-import-stat-ok">
+            Imported: {state.succeeded}
+          </span>
+          <span className="db-import-stat db-import-stat-dup">
+            Duplicates: {state.duplicate}
+          </span>
+          <span className="db-import-stat db-import-stat-err">
+            Failed: {state.failed}
+          </span>
+        </div>
+
+        {showErrors.length > 0 && (
+          <div className="db-import-errors">
+            <div className="db-import-errors-title">Last errors</div>
+            <ul className="db-import-errors-list">
+              {showErrors.map((e, idx) => (
+                <li key={`${e.name}-${idx}`}>
+                  <span className="db-import-err-name">{e.name}</span>
+                  <span className="db-import-err-msg">: {e.message}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="db-import-actions">
+          {state.running ? (
+            <button type="button" className="db-import-cancel" onClick={onCancel}>
+              Cancel
+            </button>
+          ) : (
+            <button type="button" className="db-import-close" onClick={onClose}>
+              Close
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -273,30 +509,36 @@ function PaperRow({
   const domains = cls.domain ?? [];
   const affiliations = cls.affiliations ?? [];
 
+  const titleText = paper.title ?? paper.full_id;
+  const authorsText = paper.authors.length > 0 ? paper.authors.join(', ') : '\u2014';
+  const affiliationsText = affiliations.length > 0 ? affiliations.join(', ') : '';
+  const domainsText = domains.length > 0 ? domains.join(', ') : '';
+  const venueText = paper.venue ?? '';
+
   return (
     <>
       <tr className={`db-row ${expanded ? 'expanded' : ''}`} onClick={onToggle}>
-        <td className="db-td title-cell">
-          <div className="db-title-text">{paper.title ?? paper.full_id}</div>
+        <td className="db-td title-cell" title={titleText}>
+          <div className="db-title-text">{titleText}</div>
           <span className="db-arxiv-id">{paper.full_id}</span>
         </td>
-        <td className="db-td">
+        <td className="db-td" title={authorsText}>
           {paper.first_author ?? '\u2014'}
           {paper.authors.length > 1 && (
             <span className="db-et-al"> +{paper.authors.length - 1}</span>
           )}
         </td>
-        <td className="db-td">
+        <td className="db-td" title={domainsText}>
           {domains.map((d) => (
             <span key={d} className="db-badge-dim domain">{d}</span>
           ))}
         </td>
-        <td className="db-td">
+        <td className="db-td" title={affiliationsText}>
           {affiliations.map((a) => (
             <span key={a} className="db-badge-dim affiliation">{a}</span>
           ))}
         </td>
-        <td className="db-td venue-cell">{paper.venue ?? '\u2014'}</td>
+        <td className="db-td venue-cell" title={venueText}>{paper.venue ?? '\u2014'}</td>
         <td className="db-td date-cell">{fmtDate(paper.published_at)}</td>
         <td className="db-td date-cell">{fmtDate(paper.ingested_at)}</td>
         <td className="db-td actions-cell" onClick={(e) => e.stopPropagation()}>

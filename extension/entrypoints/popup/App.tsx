@@ -30,15 +30,6 @@ export default function App() {
     window.close();
   }
 
-  async function archiveActiveTab() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) return;
-    // Convert /abs/xxx -> /pdf/xxx when needed; background will validate.
-    const pdfUrl = tab.url.replace('/abs/', '/pdf/');
-    await chrome.runtime.sendMessage({ type: 'manual-archive', pdfUrl });
-    await refresh();
-  }
-
   function openOptions() {
     chrome.runtime.openOptionsPage?.();
   }
@@ -58,11 +49,8 @@ export default function App() {
       </div>
 
       <div className="pp-row">
-        <button className="pp-btn primary" onClick={archiveActiveTab}>
-          Archive current tab
-        </button>
-        <button className="pp-btn" onClick={openDashboard}>
-          Dashboard
+        <button className="pp-btn primary" onClick={openDashboard}>
+          Open Dashboard
         </button>
       </div>
 

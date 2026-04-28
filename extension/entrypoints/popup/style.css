@@ -57,14 +57,27 @@ body {
   padding: 8px 10px;
   border: 1px solid #d0d7de;
   background: #f6f8fa;
+  color: #1f2328;
   border-radius: 6px;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .pp-btn:hover { background: #eef2f6; }
-.pp-btn.primary { background: #2563eb; color: white; border-color: #2563eb; }
+.pp-btn.primary { background: #2563eb; color: #ffffff; border-color: #2563eb; }
 .pp-btn.primary:hover { background: #1d4ed8; }
+
+@media (prefers-color-scheme: dark) {
+  .pp-btn {
+    background: #2a2d31;
+    color: #e6e6e6;
+    border-color: #3f434a;
+  }
+  .pp-btn:hover { background: #34383e; }
+  .pp-btn.primary { background: #3b82f6; color: #ffffff; border-color: #3b82f6; }
+  .pp-btn.primary:hover { background: #2563eb; }
+}
 
 .pp-section-title {
   font-size: 11px;

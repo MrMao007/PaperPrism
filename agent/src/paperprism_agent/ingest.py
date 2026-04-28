@@ -19,15 +19,19 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 from paperprism_agent import __version__
+from paperprism_agent import arxiv_client
 from paperprism_agent import db as db_module
+from paperprism_agent import llm as llm_module
+from paperprism_agent import pdf as pdf_module
 from paperprism_agent import repository, tasks
 from paperprism_agent.config import Config
-from paperprism_agent.models import IngestRequest, IngestResponse
+from paperprism_agent.models import IngestRequest, IngestResponse, UploadIngestResponse
 from paperprism_agent.paths import resolve_vault
 
 log = logging.getLogger("paperprism.ingest")
@@ -167,6 +171,160 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def handle_upload(
+    cfg: Config,
+    *,
+    file_bytes: bytes,
+    filename: str,
+    source_hint: str | None = None,
+) -> UploadIngestResponse:
+    """Ingest a user-supplied PDF (bulk-folder import path).
+
+    Flow:
+      1. Write the bytes to a temp file in the vault root and sha256 them.
+      2. If an existing paper already has this sha256 -> return duplicate.
+      3. Peek at the first page text; if it contains an arxiv id we
+         re-use the arxiv-flavoured vault layout + enrich path; otherwise
+         we file it under ``vault/local/YYYY/MM/local-<sha>/`` and use a
+         synthetic ``full_id`` so the rest of the pipeline still works.
+      4. Enqueue an enrich task (worker handles the non-arxiv branch).
+    """
+    if not filename.lower().endswith(".pdf"):
+        return UploadIngestResponse(
+            accepted=False,
+            status="rejected",
+            message="Only .pdf files are accepted",
+        )
+    if not file_bytes:
+        return UploadIngestResponse(
+            accepted=False,
+            status="rejected",
+            message="Empty file",
+        )
+
+    vault_root = cfg.paths.vault
+    vault_root.mkdir(parents=True, exist_ok=True)
+
+    # 1) stage the bytes to a temp file so we can hash / peek without
+    #    committing to a final vault path yet.
+    staging_dir = vault_root / ".uploads"
+    staging_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    tmp_path = staging_dir / f"upload-{stamp}.pdf"
+    try:
+        tmp_path.write_bytes(file_bytes)
+
+        sha = _sha256(tmp_path)
+
+        # 2) duplicate check ------------------------------------------------
+        conn = db_module.connect(cfg.paths.db_file)
+        existing = repository.find_paper_by_sha256(conn, sha)
+        if existing is not None:
+            return UploadIngestResponse(
+                accepted=True,
+                duplicate=True,
+                paperId=existing["id"],
+                fullId=existing.get("full_id"),
+                arxivId=existing.get("arxiv_id"),
+                vaultPath=existing.get("pdf_path"),
+                title=existing.get("title"),
+                status="duplicate",
+                message="File already present in the library; skipped.",
+            )
+
+        # 3) peek at first page ---------------------------------------------
+        head = pdf_module.read_head(tmp_path, pages=1)
+        arxiv_hit = _resolve_arxiv_id(
+            cfg=cfg,
+            filename=filename,
+            pdf_path=tmp_path,
+            head_text=head.text,
+        )
+
+        now = datetime.now(timezone.utc)
+        if arxiv_hit:
+            full_id = arxiv_hit
+            arxiv_id_plain = arxiv_hit.split("v")[0] if "v" in arxiv_hit else arxiv_hit
+            version = arxiv_hit[len(arxiv_id_plain):] or None
+            is_legacy = "/" in arxiv_hit
+            safe_id = full_id.replace("/", "_")
+            dest_dir = vault_root / f"{now.year:04d}" / f"{now.month:02d}" / safe_id
+        else:
+            full_id = f"local-{sha[:12]}"
+            arxiv_id_plain = full_id
+            version = None
+            is_legacy = False
+            dest_dir = vault_root / "local" / f"{now.year:04d}" / f"{now.month:02d}" / full_id
+
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_pdf = dest_dir / "paper.pdf"
+        # If another sha-collision-free upload already landed here (rare),
+        # we still overwrite -- the DB-level sha dedupe above is authoritative.
+        shutil.move(str(tmp_path), str(dest_pdf))
+
+        # 4) meta.json sidecar ---------------------------------------------
+        meta = {
+            "schema_version": META_SCHEMA_VERSION,
+            "id": arxiv_id_plain,
+            "version": version,
+            "fullId": full_id,
+            "legacy": is_legacy,
+            "source_url": None,
+            "abs_url": None,
+            "original_download_path": source_hint or filename,
+            "vault_path": str(dest_pdf),
+            "sha256": sha,
+            "size_bytes": dest_pdf.stat().st_size if dest_pdf.exists() else None,
+            "ingested_at": now.isoformat(),
+            "agent_version": __version__,
+            "copied": True,
+            "classification": None,
+            "imported": True,
+        }
+        (dest_dir / "meta.json").write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+        # 5) register + queue enrich ---------------------------------------
+        paper = repository.upsert_paper(
+            conn,
+            full_id=full_id,
+            arxiv_id=arxiv_id_plain,
+            version=version,
+            is_legacy=is_legacy,
+            pdf_path=str(dest_pdf),
+            vault_dir=str(dest_dir),
+            source_url=None,
+            abs_url=None,
+            sha256=sha,
+            size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
+        )
+        tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+
+        log.info(
+            "upload ingested paper_id=%s full_id=%s dest=%s",
+            paper.id, full_id, dest_pdf,
+        )
+        return UploadIngestResponse(
+            accepted=True,
+            duplicate=False,
+            paperId=paper.id,
+            fullId=full_id,
+            arxivId=arxiv_hit,
+            vaultPath=str(dest_pdf),
+            title=None,
+            status="queued",
+            message="Queued for enrichment + classification.",
+        )
+    finally:
+        # Clean up the staging file on failure (on success it was moved).
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+
 def _build_meta(
     *,
     req: IngestRequest,
@@ -193,3 +351,159 @@ def _build_meta(
         # Classification placeholder; to be filled by Phase 2.
         "classification": None,
     }
+
+
+# --------------------------------------------------------------------------- #
+# arxiv id resolution for bulk-folder upload
+# --------------------------------------------------------------------------- #
+#
+# Strategy (per user spec):
+#   Step 1: treat the filename as an arxiv id candidate; verify via arxiv API.
+#   Step 2: if step 1 fails, ask the LLM to extract an arxiv id from the PDF
+#           first-page text; verify via arxiv API.
+# If both steps fail we fall back to the local-<sha> path upstream.
+
+_ARXIV_ID_STR_RE = re.compile(
+    r"(\d{4}\.\d{4,5}(?:v\d+)?|[a-z][a-z\-\.]+/\d{7}(?:v\d+)?)",
+    re.IGNORECASE,
+)
+
+_LLM_EXTRACT_SYSTEM = (
+    "You extract the arXiv identifier from a paper's first-page text. "
+    "Return a single JSON object exactly matching the schema "
+    '{"arxiv_id": string | null}. '
+    "The value must be the canonical arxiv id (e.g. \"2504.19413\", "
+    "\"2504.19413v1\", or the legacy form \"cs.LG/0512001\"). "
+    "Use null when no arxiv id is present or you are not confident. "
+    "Output ONLY the JSON object, no prose."
+)
+
+
+def _candidate_from_filename(filename: str) -> str | None:
+    """Pull an arxiv-id-shaped token out of the upload's filename.
+
+    Strips the directory prefix and ``.pdf`` suffix, then:
+      1. tries the whole stem (so ``2504.19413v1.pdf`` maps cleanly),
+      2. otherwise scans for the first arxiv-shape substring
+         (so ``Attention_1706.03762.pdf`` still works).
+    Returns None when no candidate is found.
+    """
+    if not filename:
+        return None
+    stem = Path(filename).name
+    if stem.lower().endswith(".pdf"):
+        stem = stem[:-4]
+    stem = stem.strip()
+    if pdf_module.looks_like_arxiv_id(stem):
+        return stem
+    m = _ARXIV_ID_STR_RE.search(stem)
+    return m.group(1) if m else None
+
+
+def _verify_on_arxiv(full_id: str) -> bool:
+    """Return True iff arxiv API actually returns an entry for ``full_id``.
+
+    Transient errors (network, 5xx) are logged and treated as failure --
+    the caller will fall back to the next resolution step.
+    """
+    if not pdf_module.looks_like_arxiv_id(full_id):
+        return False
+    try:
+        arxiv_client.fetch_by_id(full_id)
+        return True
+    except arxiv_client.ArxivNotFound:
+        return False
+    except arxiv_client.ArxivTransientError as exc:
+        log.warning("arxiv verify failed for %s (transient): %s", full_id, exc)
+        return False
+    except Exception as exc:  # noqa: BLE001
+        log.warning("arxiv verify crashed for %s: %s", full_id, exc)
+        return False
+
+
+def _llm_extract_arxiv_id(cfg: Config, head_text: str) -> str | None:
+    """Ask the configured LLM to pull the arxiv id from the PDF head text.
+
+    Any config / network / parse error is swallowed (returns None); the
+    caller will fall back to the synthetic ``local-<sha>`` path.
+    """
+    if not head_text or not head_text.strip():
+        return None
+    try:
+        llm_cfg = llm_module.LLMConfig.load(cfg.paths.llm_config_file)
+        client = llm_module.LLMClient(llm_cfg)
+    except Exception as exc:  # noqa: BLE001
+        log.info("LLM unavailable for arxiv-id extraction: %s", exc)
+        return None
+    # Cap head_text so we don't blow the prompt budget on huge first pages.
+    snippet = head_text[: llm_cfg.pdf_head_char_limit]
+    try:
+        raw = client.chat_json(
+            system=_LLM_EXTRACT_SYSTEM,
+            user=f"Paper first-page text (truncated):\n\n{snippet}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("LLM arxiv-id extraction failed: %s", exc)
+        return None
+    candidate = _parse_llm_arxiv_id(raw)
+    if not candidate:
+        return None
+    return candidate if pdf_module.looks_like_arxiv_id(candidate) else None
+
+
+def _parse_llm_arxiv_id(raw: str) -> str | None:
+    """Best-effort JSON extraction tolerant of stray text around the object."""
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r"\{[\s\S]*\}", raw)
+        if not m:
+            return None
+        try:
+            obj = json.loads(m.group(0))
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(obj, dict):
+        return None
+    value = obj.get("arxiv_id")
+    if not isinstance(value, str):
+        return None
+    return value.strip() or None
+
+
+def _resolve_arxiv_id(
+    *,
+    cfg: Config,
+    filename: str,
+    pdf_path: Path,  # kept for future signature growth; not used today
+    head_text: str,
+) -> str | None:
+    """Two-step arxiv id resolution.
+
+    1. Derive a candidate from the filename and verify it on arxiv.org.
+    2. Ask the LLM to extract a candidate from the PDF first-page text
+       and verify it on arxiv.org.
+    Returns the verified id, or None if both steps fail.
+    """
+    del pdf_path  # reserved
+
+    # Step 1: filename -> arxiv API ------------------------------------------
+    cand = _candidate_from_filename(filename)
+    if cand:
+        log.info("arxiv resolve step1: filename candidate=%s", cand)
+        if _verify_on_arxiv(cand):
+            log.info("arxiv resolve step1 confirmed via arxiv API: %s", cand)
+            return cand
+        log.info("arxiv resolve step1 rejected by arxiv API: %s", cand)
+
+    # Step 2: LLM extraction -> arxiv API ------------------------------------
+    cand = _llm_extract_arxiv_id(cfg, head_text)
+    if cand:
+        log.info("arxiv resolve step2: llm candidate=%s", cand)
+        if _verify_on_arxiv(cand):
+            log.info("arxiv resolve step2 confirmed via arxiv API: %s", cand)
+            return cand
+        log.info("arxiv resolve step2 rejected by arxiv API: %s", cand)
+
+    log.info("arxiv resolve: no verified id for filename=%s", filename)
+    return None

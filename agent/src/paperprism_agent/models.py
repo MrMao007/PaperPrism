@@ -45,6 +45,20 @@ class IngestResponse(BaseModel):
     message: Optional[str] = None
 
 
+class UploadIngestResponse(BaseModel):
+    """Response for the dashboard's bulk-folder import endpoint."""
+
+    accepted: bool
+    paperId: Optional[int] = None
+    fullId: Optional[str] = None
+    arxivId: Optional[str] = None
+    duplicate: bool = False
+    vaultPath: Optional[str] = None
+    title: Optional[str] = None
+    status: Optional[Literal["queued", "duplicate", "rejected"]] = None
+    message: Optional[str] = None
+
+
 class HealthResponse(BaseModel):
     ok: bool = True
     version: str
