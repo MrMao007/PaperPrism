@@ -13,6 +13,7 @@ import {
 } from '@/lib/agent';
 
 const PAGE_SIZE = 20;
+const POLL_INTERVAL_MS = 15_000;
 type SortField = 'ingested_at' | 'published_at' | 'title';
 type SortOrder = 'asc' | 'desc';
 
@@ -87,8 +88,9 @@ export default function App() {
   }, []);
 
   // Load papers whenever filters/sort/page change
-  const loadPapers = useCallback(async () => {
-    setLoading(true);
+  const loadPapers = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
     try {
       const params: FetchPapersParams = {
         limit: PAGE_SIZE,
@@ -103,10 +105,14 @@ export default function App() {
       setItems(res.items);
       setTotal(res.total);
     } catch {
-      setItems([]);
-      setTotal(0);
+      if (!silent) {
+        setItems([]);
+        setTotal(0);
+      }
+      // On silent polls we keep the existing list so a transient network
+      // blip doesn't wipe the UI.
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, debouncedQuery, sortField, sortOrder, filterDomain, filterAffiliation]);
 
@@ -118,6 +124,39 @@ export default function App() {
   useEffect(() => {
     setPage(0);
   }, [debouncedQuery, filterDomain, filterAffiliation]);
+
+  // ----- Background polling ----------------------------------------------
+  //
+  // New papers enter the DB asynchronously (arxiv enrich / LLM classify run
+  // in the worker). Without polling the user has to manually refresh the
+  // page to see newly-ingested rows. We refresh every 15s, but only when:
+  //   - the tab is actually visible,
+  //   - no bulk-import is running (it refreshes itself on completion),
+  //   - no foreground load is already in flight.
+  // We track those via refs so the effect doesn't tear down / rebuild the
+  // interval on every loading flip.
+  const loadingRef = useRef(false);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+  const importRunningRef = useRef(false);
+  useEffect(() => { importRunningRef.current = importState.running; }, [importState.running]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      if (importRunningRef.current) return;
+      if (loadingRef.current) return;
+      loadPapers({ silent: true });
+    };
+    const id = window.setInterval(tick, POLL_INTERVAL_MS);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') tick();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [loadPapers]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
