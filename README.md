@@ -6,12 +6,20 @@ hidden workspace, extracts metadata, and classifies them with your LLM of
 choice. No papers ever leave your machine.
 
 - **Chrome extension** — popup archive button, Options first-run wizard,
-  built-in Dashboard to browse / filter / view PDF / delete papers, and
-  **bulk-import an existing folder of PDFs** with per-file progress.
+  built-in Dashboard to browse / filter / view PDF / tag / delete papers,
+  one-click **Settings** entry from the Dashboard, **bulk-import an
+  existing folder of PDFs** with per-file progress, and a batch
+  **Auto-tag → Topic** panel that turns a selection of papers into a
+  themed topic page.
 - **Local Agent** — FastAPI service (default `http://127.0.0.1:17321`),
   SQLite + FTS5 store, LLM classifier (OpenAI / Anthropic / Google Gemini
   / Qwen / DeepSeek / Moonshot / OpenRouter / Ollama), two-step arxiv-id
-  resolver for legacy PDFs (filename → LLM fallback), auto-start at login.
+  resolver for legacy PDFs (filename → LLM fallback), **auto-tag on
+  ingest** (each new paper gets 2–5 short LLM tags), auto-start at login.
+- **Tags & Topics** — every paper accumulates tags (LLM-generated on
+  ingest + user-added); any selection of papers can be summarised into a
+  Topic card with a name, a one-liner summary, and the full set of tags
+  shared by its papers. All state stays in local SQLite.
 
 ## Install (end users)
 
@@ -173,7 +181,9 @@ A **PaperPrism** icon appears in the toolbar. Pin it for convenience.
 Open any arxiv abstract page, e.g. <https://arxiv.org/abs/2310.06825>,
 click **Download PDF** (or the PaperPrism popup's **Archive current
 tab**). The Agent ingests the PDF, extracts metadata, classifies it with
-your LLM, and the Dashboard lists it within a few seconds.
+your LLM, **auto-tags it** with 2–5 short tags, and the Dashboard lists
+it within a few seconds. Auto-tag-on-ingest can be toggled in the
+Options page → LLM section.
 
 You now have everything running from source.
 
@@ -196,6 +206,16 @@ For each PDF the Agent resolves its arxiv id in two steps:
 
 If both steps fail the paper is still archived under a synthetic
 `local-<sha>` id so you don't lose the file.
+
+### 7. (Optional) Roll papers up into a Topic
+
+In the Dashboard, tick any number of papers, then click **Auto-tag
+selected** in the bulk toolbar. The Agent batches them to the LLM,
+persists per-paper tags, and finishes by summarising the collection
+into a **Topic** card (name + 1–3 sentence summary + every shared tag).
+Switch to the **Topics** tab from the header nav to browse all topics;
+click one to open its detail page with the full paper list. Single
+papers always keep their own tags even after a topic is deleted.
 
 ### Useful commands while developing
 
