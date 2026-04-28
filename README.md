@@ -6,9 +6,12 @@ hidden workspace, extracts metadata, and classifies them with your LLM of
 choice. No papers ever leave your machine.
 
 - **Chrome extension** — popup archive button, Options first-run wizard,
-  built-in Dashboard to browse / filter / view PDF / delete papers.
+  built-in Dashboard to browse / filter / view PDF / delete papers, and
+  **bulk-import an existing folder of PDFs** with per-file progress.
 - **Local Agent** — FastAPI service (default `http://127.0.0.1:17321`),
-  SQLite + FTS5 store, LLM classifier, auto-start at login.
+  SQLite + FTS5 store, LLM classifier (OpenAI / Anthropic / Google Gemini
+  / Qwen / DeepSeek / Moonshot / OpenRouter / Ollama), two-step arxiv-id
+  resolver for legacy PDFs (filename → LLM fallback), auto-start at login.
 
 ## Install (end users)
 
@@ -156,9 +159,9 @@ A **PaperPrism** icon appears in the toolbar. Pin it for convenience.
 2. Click **Settings** (footer) — the Options page opens and auto-launches
    the 4-step wizard:
    - **Step 1** probes the Agent.
-   - **Step 2** pick an LLM provider (Qwen / OpenAI / DeepSeek / Moonshot
-     / OpenRouter / Ollama local). API base and env var are filled in
-     automatically.
+   - **Step 2** pick an LLM provider (Qwen / OpenAI / Anthropic / Google
+     Gemini / DeepSeek / Moonshot / OpenRouter / Ollama local). API base
+     and env var are filled in automatically.
    - **Step 3** paste your API key (skipped for Ollama). It is written to
      `~/.paperprism/secrets.env` (mode 600) and injected into the Agent
      process for immediate use; the wizard then runs a tiny chat
@@ -173,6 +176,26 @@ tab**). The Agent ingests the PDF, extracts metadata, classifies it with
 your LLM, and the Dashboard lists it within a few seconds.
 
 You now have everything running from source.
+
+### 6. (Optional) Bulk-import an existing folder of PDFs
+
+Got a local archive of arxiv papers accumulated over the years? Open the
+Dashboard, click **Import folder**, and pick any directory. The extension
+walks the tree, uploads every `.pdf` to the Agent, and streams live
+progress (imported / duplicate / failed counters plus a "last errors"
+tail). You can cancel mid-run.
+
+For each PDF the Agent resolves its arxiv id in two steps:
+
+1. **Filename first** — tries the file stem (e.g. `2504.19413v1.pdf`,
+   `Attention_1706.03762.pdf`) as a candidate and verifies it on the
+   arxiv API.
+2. **LLM fallback** — if step 1 misses, the first page of the PDF is fed
+   to your configured LLM with a strict `{"arxiv_id": ...}` schema;
+   the returned id is re-verified on arxiv.
+
+If both steps fail the paper is still archived under a synthetic
+`local-<sha>` id so you don't lose the file.
 
 ### Useful commands while developing
 
