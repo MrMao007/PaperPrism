@@ -31,14 +31,11 @@ export default defineConfig({
       page: 'options.html',
       open_in_tab: true,
     },
-    // Icons are optional during dev. To ship, drop PNGs into public/icon/
-    // named 16.png / 32.png / 48.png / 128.png and re-enable the `icons`
-    // field below.
-    // icons: {
-    //   '16': 'icon/16.png',
-    //   '32': 'icon/32.png',
-    //   '48': 'icon/48.png',
-    //   '128': 'icon/128.png',
-    // },
+    icons: {
+      '16': 'icon/16.png',
+      '32': 'icon/32.png',
+      '48': 'icon/48.png',
+      '128': 'icon/128.png',
+    },
   },
 });
