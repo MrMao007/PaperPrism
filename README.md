@@ -70,21 +70,130 @@ npm run build
 The first time you open the extension's Options page a 4-step wizard runs
 (probe Agent → pick LLM provider → enter API key → test + open Dashboard).
 
-## Install (developers)
+## Run from source
+
+The fastest way to try PaperPrism without downloading any release artifact:
+clone, install once, load the unpacked extension into Chrome. Works on
+macOS, Linux, and WSL. Total setup time: ~3 minutes.
+
+### Prerequisites
+
+| Tool | Version | Notes |
+|---|---|---|
+| Python | **>= 3.10** | `hatchling` refuses older interpreters. `python3 --version` to check. |
+| Node.js | **>= 18** | For the WXT build. `node --version` to check. |
+| Google Chrome | any recent | Or any Chromium-based browser (Edge, Brave, Arc). |
+| Git | any | |
+
+Missing Python 3.10+? On macOS: `brew install python@3.11`. On Ubuntu:
+`sudo apt install python3.11 python3.11-venv`.
+
+### 1. Clone the repo
 
 ```bash
-# 1. Agent
-cd agent
-python3.11 -m venv .venv && source .venv/bin/activate
-pip install -e .
-paperprism-agent install  # register LaunchAgent
-paperprism-agent status   # confirm it's running
-
-# 2. Extension
-cd ../extension
-npm install
-npm run dev               # hot-reload into Chrome
+git clone https://github.com/MrMao007/PaperPrism.git
+cd PaperPrism
 ```
+
+### 2. Install and start the Agent
+
+```bash
+cd agent
+python3.11 -m venv .venv            # use python3.10/3.12 if you prefer
+source .venv/bin/activate
+pip install -e .
+
+# Verify the CLI works
+paperprism-agent version
+
+# macOS: register a LaunchAgent so it auto-starts at login
+paperprism-agent install
+paperprism-agent status              # should print "state = running"
+
+# Linux / WSL: no launchd; run it in a separate terminal
+# paperprism-agent serve
+```
+
+Health check from another shell:
+
+```bash
+curl http://127.0.0.1:17321/api/health
+# {"ok":true,"version":"0.1.0",...}
+```
+
+All state lives under `~/.paperprism/` (vault, SQLite DB, logs, secrets).
+
+### 3. Build and load the Chrome extension
+
+```bash
+cd ../extension
+npm install                          # installs WXT + React toolchain
+npm run build                        # produces .output/chrome-mv3/
+```
+
+Then load it into Chrome:
+
+1. Open **`chrome://extensions`**
+2. Toggle **Developer mode** on (top right)
+3. Click **Load unpacked**
+4. Select the folder `extension/.output/chrome-mv3`
+
+A **PaperPrism** icon appears in the toolbar. Pin it for convenience.
+
+> Prefer hot-reload while editing the extension? Run `npm run dev` instead
+> of `npm run build` — WXT will rebuild on save; just click **Update** on
+> the `chrome://extensions` card when prompted.
+
+### 4. Finish the first-run wizard
+
+1. Click the toolbar icon → the popup should show **Agent: online**.
+2. Click **Settings** (footer) — the Options page opens and auto-launches
+   the 4-step wizard:
+   - **Step 1** probes the Agent.
+   - **Step 2** pick an LLM provider (Qwen / OpenAI / DeepSeek / Moonshot
+     / OpenRouter / Ollama local). API base and env var are filled in
+     automatically.
+   - **Step 3** paste your API key (skipped for Ollama). It is written to
+     `~/.paperprism/secrets.env` (mode 600) and injected into the Agent
+     process for immediate use; the wizard then runs a tiny chat
+     request to prove the key works.
+   - **Step 4** click **Open Dashboard**.
+
+### 5. Archive your first paper
+
+Open any arxiv abstract page, e.g. <https://arxiv.org/abs/2310.06825>,
+click **Download PDF** (or the PaperPrism popup's **Archive current
+tab**). The Agent ingests the PDF, extracts metadata, classifies it with
+your LLM, and the Dashboard lists it within a few seconds.
+
+You now have everything running from source.
+
+### Useful commands while developing
+
+```bash
+# Agent
+paperprism-agent status               # launchd state
+paperprism-agent logs --follow        # tail stdout/stderr
+paperprism-agent restart              # force launchd to re-exec
+paperprism-agent uninstall            # remove the LaunchAgent
+
+# Extension
+cd extension
+npm run dev                           # watch mode, auto-rebuilds
+npm run build                         # one-shot production build
+npm run compile                       # type-check without emit
+```
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `pip install -e .` fails with `hatchling>=1.25` error | Your venv was built with Python < 3.10. Recreate with `python3.11 -m venv .venv`. |
+| Popup shows **Agent: offline** | Run `paperprism-agent status`; if not running, `paperprism-agent restart`. Check port 17321 isn't taken: `lsof -i :17321`. |
+| `npm install` warns about type errors | Run once then retry — WXT generates `.wxt/tsconfig.json` on `postinstall`. |
+| Wizard **Save & Test** fails | Open `~/.paperprism/logs/agent.log`; the LLM error (401 / 404 / timeout) is usually obvious. |
+| Changed code in `agent/` but Agent still runs old version | `paperprism-agent restart` — `pip install -e .` only links source, but the already-loaded process keeps old imports. |
+| Chrome shows "This extension may soon no longer be supported" | You built an MV2 artifact by accident; make sure you loaded `.output/chrome-mv3/`, not any zipped older build. |
 
 ## Build a release locally
 
