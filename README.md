@@ -1,5 +1,5 @@
 # PaperPrism
-
+<img width="1024" height="314" alt="1777376072343image" src="https://github.com/user-attachments/assets/1da69e2d-9a92-45e2-995e-eb2f100e88b6" />
 A local-first, privacy-preserving arxiv paper organizer. A Chrome extension
 watches your arxiv downloads; a tiny local Agent mirrors each paper into a
 hidden workspace, extracts metadata, and classifies them with your LLM of
