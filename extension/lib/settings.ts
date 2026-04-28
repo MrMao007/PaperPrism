@@ -22,6 +22,8 @@ export interface Settings {
   archiveEnabled: boolean;
   /** Whether to show a native notification after each archive event. */
   notifyEnabled: boolean;
+  /** True once the first-run Options wizard has been completed. */
+  wizardCompleted: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -30,6 +32,7 @@ export const DEFAULT_SETTINGS: Settings = {
   agentToken: '',
   archiveEnabled: true,
   notifyEnabled: true,
+  wizardCompleted: false,
 };
 
 const KEY = 'paperprism.settings.v1';

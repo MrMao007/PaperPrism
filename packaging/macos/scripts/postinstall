@@ -1,0 +1,46 @@
+#!/bin/bash
+# PaperPrism Agent postinstall script.
+#
+# Runs as root after the payload is laid down at /usr/local/bin +
+# /usr/local/libexec. We must:
+#   1. Detect the currently logged-in console user.
+#   2. Run `paperprism-agent install` AS THAT USER so the LaunchAgent plist
+#      lands under ~/Library/LaunchAgents and the agent process runs under
+#      their UID (it writes to ~/.paperprism/).
+#
+# Best-effort: if no console user is detected (e.g. the installer ran
+# non-interactively), we skip launchd registration and print a hint.
+
+set -euo pipefail
+
+BIN="/usr/local/bin/paperprism-agent"
+
+if [ ! -x "${BIN}" ]; then
+    echo "[paperprism] binary not found at ${BIN}; aborting postinstall." >&2
+    exit 1
+fi
+
+# Clear macOS quarantine flag so Gatekeeper doesn't block first launch.
+# (Harmless if the attribute is not present.)
+xattr -dr com.apple.quarantine /usr/local/libexec/paperprism 2>/dev/null || true
+xattr -d com.apple.quarantine "${BIN}" 2>/dev/null || true
+
+CONSOLE_USER="$(stat -f %Su /dev/console 2>/dev/null || true)"
+if [ -z "${CONSOLE_USER}" ] || [ "${CONSOLE_USER}" = "root" ]; then
+    cat >&2 <<'EOF'
+[paperprism] Installed the binary, but no logged-in user was detected so
+the LaunchAgent was NOT registered. Finish setup by running, as yourself:
+    paperprism-agent install
+EOF
+    exit 0
+fi
+
+CONSOLE_UID="$(id -u "${CONSOLE_USER}")"
+
+# Drop root, launch install as the console user, under their launchctl domain.
+# Use `launchctl asuser` for reliable LaunchAgent bootstrap on modern macOS.
+echo "[paperprism] Registering LaunchAgent for ${CONSOLE_USER}..."
+launchctl asuser "${CONSOLE_UID}" sudo -u "${CONSOLE_USER}" -i "${BIN}" install \
+    || echo "[paperprism] install exited non-zero; run 'paperprism-agent install' manually." >&2
+
+exit 0

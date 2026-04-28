@@ -61,14 +61,26 @@ def _service_target() -> str:
 def build_plist(cfg: Config) -> dict:
     """Assemble the plist document.
 
-    Uses `sys.executable` so whichever venv the user ran `install`
-    from becomes the interpreter launchd boots at login. This makes
-    upgrades a simple `pip install -e .` + `paperprism-agent install`.
+    Two launch strategies are supported:
+
+    1. **Source / editable install** (the default): we invoke
+       ``sys.executable -m paperprism_agent serve`` so whichever venv the
+       user ran `install` from becomes the interpreter launchd boots.
+       Upgrades are then just `pip install -e .` + `paperprism-agent install`.
+
+    2. **Frozen binary** (PyInstaller one-file, e.g. distributed via .pkg or
+       the Homebrew cask): `sys.frozen` is truthy and `sys.executable` points
+       at the bundled binary itself. We invoke it directly with ``serve``,
+       skipping the ``-m paperprism_agent`` indirection that only makes
+       sense when a real Python interpreter is available.
 
     If `~/.paperprism/secrets.env` exists, allowlisted keys from it are
     baked into `EnvironmentVariables` so the Agent subprocess sees them.
     """
-    python = sys.executable
+    if getattr(sys, "frozen", False):
+        program_arguments = [sys.executable, "serve"]
+    else:
+        program_arguments = [sys.executable, "-m", "paperprism_agent", "serve"]
 
     env = {
         # launchd's default PATH is very thin; pad it with the usual suspects
@@ -89,7 +101,7 @@ def build_plist(cfg: Config) -> dict:
 
     return {
         "Label": LABEL,
-        "ProgramArguments": [python, "-m", "paperprism_agent", "serve"],
+        "ProgramArguments": program_arguments,
         "RunAtLoad": True,
         # Restart on crash, but not on a clean exit (lets us stop it cleanly).
         "KeepAlive": {
@@ -153,6 +165,52 @@ def load_secrets(path: Path) -> tuple[dict[str, str], list[str]]:
             continue
         out[key] = value
     return out, warnings
+
+
+def upsert_secret(path: Path, key: str, value: str) -> None:
+    """Insert or update a single ``KEY=value`` line in a dotenv-style file.
+
+    Preserves all other lines (including comments). Rejects keys outside the
+    allowlist. Writes with mode 600. If the file does not exist, creates it.
+    """
+    if key not in _SECRET_ALLOWLIST:
+        raise ValueError(
+            f"refusing to write secret {key!r}: not in allowlist "
+            f"({', '.join(sorted(_SECRET_ALLOWLIST))})"
+        )
+    lines: list[str] = []
+    if path.exists():
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+    replaced = False
+    new_line = f"{key}={value}"
+    for i, raw in enumerate(lines):
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        k = stripped.partition("=")[0].strip()
+        if k == key:
+            lines[i] = new_line
+            replaced = True
+            break
+    if not replaced:
+        lines.append(new_line)
+    # Ensure trailing newline for POSIX friendliness.
+    text = "\n".join(lines).rstrip("\n") + "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
+def secret_allowlist() -> frozenset[str]:
+    """Return the set of environment variable names we are willing to
+    persist via ``secrets.env``."""
+    return frozenset(_SECRET_ALLOWLIST)
 
 
 def write_plist(cfg: Config) -> Path:

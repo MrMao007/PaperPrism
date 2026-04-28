@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>PaperPrism Agent</title>
+    <organization>org.paperprism</organization>
+    <options customize="never" allow-external-scripts="no" rootVolumeOnly="true"/>
+    <domains enable_localSystem="true"/>
+    <welcome file="welcome.txt" mime-type="text/plain"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="org.paperprism.agent"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="org.paperprism.agent" visible="false">
+        <pkg-ref id="org.paperprism.agent"/>
+    </choice>
+    <pkg-ref id="org.paperprism.agent" version="0" onConclusion="none">paperprism-agent-component.pkg</pkg-ref>
+</installer-gui-script>

@@ -212,3 +212,79 @@ export async function openPaperPdf(paperId: number): Promise<void> {
   window.open(url, '_blank', 'noopener,noreferrer');
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+// --------------- LLM config API ---------------
+
+export interface LlmConfig {
+  version: number;
+  provider: string;
+  model: string;
+  api_base: string;
+  api_key_env: string;
+  api_key_has_value: boolean;
+  temperature: number;
+  max_output_tokens: number;
+  timeout_seconds: number;
+  max_retries: number;
+  abstract_char_limit: number;
+  pdf_head_char_limit: number;
+  allowed_api_key_envs: string[];
+  path: string;
+}
+
+export interface LlmConfigUpdate {
+  version?: number;
+  provider: string;
+  model: string;
+  api_base?: string | null;
+  api_key_env?: string | null;
+  /** Plain-text key; when non-empty, is written into secrets.env
+   *  (requires api_key_env to be in the allowlist). */
+  api_key?: string;
+  temperature?: number;
+  max_output_tokens?: number;
+  timeout_seconds?: number;
+  max_retries?: number;
+  abstract_char_limit?: number;
+  pdf_head_char_limit?: number;
+}
+
+export interface LlmTestResult {
+  ok: boolean;
+  provider_label?: string;
+  sample?: string;
+  error?: string;
+}
+
+export async function fetchLlmConfig(): Promise<LlmConfig> {
+  const res = await authedFetch('/api/llm/config', { method: 'GET' });
+  if (!res.ok) throw new Error(`Failed to load llm config: ${res.status}`);
+  return (await res.json()) as LlmConfig;
+}
+
+export async function saveLlmConfig(
+  cfg: LlmConfigUpdate,
+): Promise<{ saved: boolean; secret_written: boolean; path: string }> {
+  const res = await authedFetch('/api/llm/config', {
+    method: 'PUT',
+    body: JSON.stringify(cfg),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to save llm config: ${res.status} ${text}`);
+  }
+  return (await res.json()) as {
+    saved: boolean;
+    secret_written: boolean;
+    path: string;
+  };
+}
+
+export async function testLlmConfig(): Promise<LlmTestResult> {
+  const res = await authedFetch('/api/llm/test', { method: 'POST' });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`LLM test endpoint error: ${res.status} ${text}`);
+  }
+  return (await res.json()) as LlmTestResult;
+}

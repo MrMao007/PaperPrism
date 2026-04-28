@@ -1,0 +1,13 @@
+PaperPrism Agent
+
+This installer places the paperprism-agent binary under /usr/local and
+registers a LaunchAgent so it starts automatically at login.
+
+After installation:
+  - Install the Chrome extension from the Chrome Web Store (or load it
+    unpacked from the PaperPrism/extension directory).
+  - The extension's first-run wizard will guide you through picking an
+    LLM provider and entering an API key.
+
+All paper files are written to ~/.paperprism (a hidden directory in
+your home folder). No daemons run as root.

@@ -1,0 +1,137 @@
+name: Release
+
+# Triggers:
+# - Push a tag like v0.1.0 to kick off a full multi-OS build and publish
+#   to a GitHub Release (created automatically if it doesn't exist yet).
+# - Manual run (workflow_dispatch) for dry-run builds that upload
+#   artifacts but DON'T publish a Release.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write  # needed to upload release assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-arm64
+            os: macos-14      # Apple Silicon runner
+            asset_os: macos
+            asset_arch: arm64
+          - target: macos-x86_64
+            os: macos-13      # Intel runner
+            asset_os: macos
+            asset_arch: x86_64
+          - target: linux-x86_64
+            os: ubuntu-22.04
+            asset_os: linux
+            asset_arch: x86_64
+          - target: linux-arm64
+            os: ubuntu-22.04-arm
+            asset_os: linux
+            asset_arch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build binary with PyInstaller
+        shell: bash
+        run: |
+          bash packaging/pyinstaller/build.sh
+
+      - name: Package tarball
+        shell: bash
+        run: |
+          cd packaging/pyinstaller/dist
+          TAR="paperprism-agent-${{ matrix.asset_os }}-${{ matrix.asset_arch }}.tar.gz"
+          tar -czf "${TAR}" paperprism-agent
+          shasum -a 256 "${TAR}" | tee "${TAR}.sha256"
+          ls -lh
+
+      - name: Build macOS .pkg installer
+        if: matrix.asset_os == 'macos'
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "${VERSION}" ] || [ "${VERSION}" = "${GITHUB_REF_NAME}" ]; then
+            VERSION="0.0.0-dev"
+          fi
+          bash packaging/macos/build_pkg.sh "${VERSION}"
+          ls -lh packaging/macos/dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: paperprism-agent-${{ matrix.target }}
+          path: |
+            packaging/pyinstaller/dist/paperprism-agent-*.tar.gz
+            packaging/pyinstaller/dist/paperprism-agent-*.tar.gz.sha256
+            packaging/macos/dist/*.pkg
+          if-no-files-found: warn
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Flatten assets
+        run: |
+          mkdir -p upload
+          find release-assets -type f \( -name '*.tar.gz' -o -name '*.sha256' -o -name '*.pkg' \) \
+            -exec cp {} upload/ \;
+          ls -lh upload
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: upload/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            ### One-line (macOS / Linux)
+            ```
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packaging/install.sh | bash
+            ```
+
+            ### macOS installer
+            Download `paperprism-agent-*-macos-*.pkg` below and double-click.
+
+            ### Homebrew (once the tap is published)
+            ```
+            brew tap ${{ github.repository_owner }}/paperprism
+            brew install paperprism-agent
+            brew services start paperprism-agent
+            ```
+
+            ### Manual (tarball)
+            Download the matching `paperprism-agent-<os>-<arch>.tar.gz`, extract,
+            move the `paperprism-agent` binary somewhere on your PATH, and run
+            `paperprism-agent install` to register the auto-start service.
+
+  # TODO(v0.2): Windows (.msi via WiX) and Debian (.deb via dpkg-deb) builds.
+  # Windows needs a windows-latest runner + wixtoolset; .deb needs fpm or a
+  # Debian control file. Both are tracked but out-of-scope for the initial
+  # macOS/Linux rollout.

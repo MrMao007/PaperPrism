@@ -32,6 +32,7 @@ from paperprism_agent import db as db_module
 from paperprism_agent import repository, tasks
 from paperprism_agent.config import Config
 from paperprism_agent.ingest import handle_ingest
+from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
 from paperprism_agent.models import HealthResponse, IngestRequest, IngestResponse
 from paperprism_agent.worker import Worker
 
@@ -85,7 +86,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         allow_credentials=False,
     )
@@ -273,6 +274,136 @@ def create_app(cfg: Config) -> FastAPI:
             "full_id": full_id,
             "files_removed": files_removed,
         }
+
+    # ---------------- LLM configuration ----------------
+
+    @app.get("/api/llm/config")
+    def get_llm_config() -> dict:
+        """Return current ``llm.yaml`` values. Never exposes the actual
+        api key, only whether the named env var is populated."""
+        import os as _os
+        import yaml as _yaml
+        from paperprism_agent.launchd import secret_allowlist
+
+        path = cfg.paths.llm_config_file
+        raw: dict = {}
+        if path.exists():
+            try:
+                loaded = _yaml.safe_load(path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    raw = loaded
+            except Exception as exc:
+                raise HTTPException(500, detail=f"llm.yaml unreadable: {exc}")
+        api_key_env = raw.get("api_key_env") or None
+        api_key_has_value = bool(
+            api_key_env and _os.environ.get(api_key_env)
+        )
+        return {
+            "version": int(raw.get("version", 1)),
+            "provider": str(raw.get("provider", "openai")).lower(),
+            "model": raw.get("model", ""),
+            "api_base": raw.get("api_base") or "",
+            "api_key_env": api_key_env or "",
+            "api_key_has_value": api_key_has_value,
+            "temperature": float(raw.get("temperature", 0.0)),
+            "max_output_tokens": int(raw.get("max_output_tokens", 600)),
+            "timeout_seconds": float(raw.get("timeout_seconds", 60)),
+            "max_retries": int(raw.get("max_retries", 2)),
+            "abstract_char_limit": int(raw.get("abstract_char_limit", 2000)),
+            "pdf_head_char_limit": int(raw.get("pdf_head_char_limit", 1500)),
+            "allowed_api_key_envs": sorted(secret_allowlist()),
+            "path": str(path),
+        }
+
+    @app.put("/api/llm/config", dependencies=[Depends(require_token)])
+    def put_llm_config(payload: dict) -> dict:
+        """Overwrite ``llm.yaml`` with the provided config.
+
+        If ``api_key`` is supplied and ``api_key_env`` is in the allowlist,
+        the key is upserted into ``secrets.env`` (mode 600) and injected
+        into the running process env so the next worker load picks it up.
+        The api_key itself is never written into llm.yaml.
+        """
+        import os as _os
+        import yaml as _yaml
+        from paperprism_agent.launchd import upsert_secret
+
+        if not isinstance(payload, dict):
+            raise HTTPException(400, detail="body must be a JSON object")
+
+        api_key_plain = payload.pop("api_key", None)
+
+        # Validate required fields minimally.
+        try:
+            doc = {
+                "version": int(payload.get("version", 1)),
+                "provider": str(payload.get("provider", "openai")).lower(),
+                "model": str(payload["model"]),
+                "api_base": (payload.get("api_base") or None),
+                "api_key_env": (payload.get("api_key_env") or None),
+                "temperature": float(payload.get("temperature", 0.0)),
+                "max_output_tokens": int(payload.get("max_output_tokens", 600)),
+                "timeout_seconds": float(payload.get("timeout_seconds", 60)),
+                "max_retries": int(payload.get("max_retries", 2)),
+                "abstract_char_limit": int(payload.get("abstract_char_limit", 2000)),
+                "pdf_head_char_limit": int(payload.get("pdf_head_char_limit", 1500)),
+            }
+        except KeyError as exc:
+            raise HTTPException(400, detail=f"missing field: {exc}")
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, detail=f"invalid field: {exc}")
+
+        path = cfg.paths.llm_config_file
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            path.write_text(
+                _yaml.safe_dump(doc, sort_keys=False, allow_unicode=True),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            raise HTTPException(500, detail=f"failed to write llm.yaml: {exc}")
+
+        secret_written = False
+        if api_key_plain and doc["api_key_env"]:
+            try:
+                upsert_secret(
+                    cfg.paths.secrets_file, doc["api_key_env"], str(api_key_plain)
+                )
+                _os.environ[doc["api_key_env"]] = str(api_key_plain)
+                secret_written = True
+            except ValueError as exc:
+                # Key not in allowlist: we still saved llm.yaml.
+                raise HTTPException(400, detail=str(exc))
+
+        log.info(
+            "llm.yaml updated: provider=%s model=%s api_base=%s key_env=%s secret_written=%s",
+            doc["provider"], doc["model"], doc["api_base"], doc["api_key_env"], secret_written,
+        )
+        return {"saved": True, "secret_written": secret_written, "path": str(path)}
+
+    @app.post("/api/llm/test", dependencies=[Depends(require_token)])
+    def test_llm_config() -> dict:
+        """Load the current ``llm.yaml`` and make a tiny chat request to
+        confirm the provider is reachable and the api key works."""
+        try:
+            llm_cfg = LLMConfig.load(cfg.paths.llm_config_file)
+            client = LLMClient(llm_cfg)
+            content = client.chat_json(
+                system='You respond with strict JSON.',
+                user='Respond with exactly {"ok":true}.',
+            )
+            return {
+                "ok": True,
+                "provider_label": client.provider_label,
+                "sample": content[:200],
+            }
+        except LLMConfigError as exc:
+            return {"ok": False, "error": f"config: {exc}"}
+        except LLMError as exc:
+            return {"ok": False, "error": f"llm: {exc}"}
+        except Exception as exc:  # noqa: BLE001
+            log.exception("llm test failed")
+            return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
     return app
 

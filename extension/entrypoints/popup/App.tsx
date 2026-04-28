@@ -66,6 +66,24 @@ export default function App() {
         </button>
       </div>
 
+      {agent === 'offline' && (
+        <div className="pp-offline-hint">
+          <div className="pp-offline-title">Agent not running</div>
+          <div className="pp-offline-body">
+            PaperPrism needs a small local helper to copy and classify papers.
+            Open Settings to run the first-time setup wizard.
+          </div>
+          <div className="pp-row">
+            <button className="pp-btn primary" onClick={openOptions}>
+              Open setup
+            </button>
+            <button className="pp-btn" onClick={probeAgent}>
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="pp-section-title">Recent events</div>
       {events.length === 0 ? (
         <div className="pp-empty">No arxiv downloads detected yet.</div>
