@@ -1,0 +1,147 @@
+# ============================================================
+# PaperPrism root .gitignore
+# Covers shared concerns across /agent (Python), /extension (WXT),
+# and /packaging (PyInstaller + installers). Each subproject also
+# keeps its own more specific .gitignore.
+# ============================================================
+
+# ---------- OS / editor / IDE ----------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# JetBrains
+.idea/
+*.iml
+
+# VS Code (keep shared recommendations, ignore local state)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
+
+# Vim / Emacs / general swap
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# ---------- Python (applies to /agent and any scripts) ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pyre/
+.pytype/
+pip-wheel-metadata/
+
+# ---------- Node / WXT / Vite (applies to /extension) ----------
+node_modules/
+.pnp.*
+.npm/
+.yarn/
+!.yarn/releases
+!.yarn/plugins
+.yarn-integrity
+.pnpm-store/
+.output/
+.wxt/
+.vite/
+.turbo/
+dist/
+stats.html
+stats-*.json
+
+# ---------- Build artifacts / distributions ----------
+build/
+dist/
+out/
+release/
+*.tsbuildinfo
+
+# PyInstaller
+*.spec.bak
+*.manifest
+
+# Installer outputs
+*.pkg
+*.dmg
+*.msi
+*.exe
+*.deb
+*.rpm
+*.AppImage
+*.app.zip
+
+# Extension upload bundles (wxt zip)
+*.zip
+!packaging/**/*.template.zip
+
+# ---------- Logs / diagnostics ----------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+launchd.*.log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ---------- Secrets / local config ----------
+# Anything resembling user credentials or machine-local runtime.
+.env
+.env.*
+!.env.example
+secrets.env
+secrets.*.env
+*.secret
+*.secret.*
+llm.local.yaml
+llm.*.local.yaml
+
+# Local PaperPrism vault / DB copies that sometimes get dragged
+# into the repo by mistake.
+db.sqlite
+db.sqlite-*
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+.paperprism/
+paperprism-data/
+
+# ---------- Temp / cache ----------
+tmp/
+temp/
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# ---------- Miscellaneous ----------
+# Python REPL history
+.python_history
+# Node REPL history
+.node_repl_history
+# Direnv
+.direnv/
+.envrc.local

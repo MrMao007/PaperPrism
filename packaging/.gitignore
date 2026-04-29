@@ -1,0 +1,31 @@
+# Packaging-local build artifacts.
+# The repo-root .gitignore already covers build/, dist/, *.pkg, *.dmg,
+# *.zip etc.; the entries below are extra defence-in-depth for things
+# that tend to appear specifically under /packaging during local dry
+# runs of the PyInstaller + installer pipeline.
+
+# PyInstaller staging / output (local dry runs go to these paths)
+pyinstaller/build/
+pyinstaller/dist/
+pyinstaller/out/
+pyinstaller/__pycache__/
+pyinstaller/*.spec.bak
+
+# macOS .pkg staging
+macos/build/
+macos/out/
+macos/*.pkg
+
+# Homebrew formula test sandboxes
+homebrew/tmp/
+homebrew/downloads/
+homebrew/*.tar.gz
+
+# Artifacts dumped by install.sh during local testing
+install-*.log
+install-dryrun/
+
+# Signed bundles or notarization receipts accidentally left behind
+*.notarization-ticket
+*.zip.asc
+*.pkg.asc
