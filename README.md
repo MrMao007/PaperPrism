@@ -43,6 +43,40 @@ choice. No papers ever leave your machine.
   <img width="400" height="365" alt="FDF3F1E1-0B56-4595-A73F-C2BDA709C97D" src="https://github.com/user-attachments/assets/abda39eb-018f-40c9-94a8-27c972dc93d8" />
   </p>
   
+## Quick start (2 steps)
+
+The fastest way to try PaperPrism. No source checkout, no build.
+
+### 1. Install the Chrome extension
+
+> 🛍️ **Chrome Web Store listing coming soon** — the link will appear
+> here once the review passes. In the meantime you can load the
+> extension unpacked in two clicks:
+>
+> 1. Download the latest `paperprism-extension-<version>-chrome.zip`
+>    from the [Releases page](https://github.com/MrMao007/PaperPrism/releases)
+>    *(or build it yourself with `cd extension && npm install && npm run build && npm run zip`)*.
+> 2. Unzip it, open `chrome://extensions`, toggle **Developer mode**
+>    on, click **Load unpacked**, and pick the unzipped folder.
+
+### 2. Start the local Agent with `uvx`
+
+```bash
+uvx paperprism-agent serve
+```
+
+That's it. Click the PaperPrism toolbar icon — the popup should show
+**Agent: online** and a 4-step first-run wizard helps you pick an LLM
+provider and paste an API key. Then download any arxiv PDF and
+PaperPrism will archive + classify + auto-tag it within seconds.
+
+Prerequisite: [`uv`](https://docs.astral.sh/uv/) 0.4+
+(`curl -LsSf https://astral.sh/uv/install.sh | sh` on macOS / Linux).
+
+Want the Agent to auto-start at login (macOS) and survive crashes? Use
+[the recommended `uv tool install` path](#-recommended--uv-tool-install-any-os)
+below instead of `uvx`.
+
 ## Install
 
 ### ⭐ Recommended — `uv tool install` (any OS)
