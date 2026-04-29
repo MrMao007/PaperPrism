@@ -4,7 +4,6 @@
 <p align="center">
   <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/v/paperprism-agent.svg?label=PyPI&color=2b6cb0" alt="PyPI version"></a>
   <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/pyversions/paperprism-agent.svg?label=python" alt="Python versions"></a>
-  <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/dm/paperprism-agent.svg?label=PyPI%20downloads" alt="PyPI downloads"></a>
   <a href="https://github.com/MrMao007/PaperPrism/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-brightgreen.svg" alt="License: Apache-2.0"></a>
   <img src="https://img.shields.io/badge/manifest-MV3-f59e0b.svg" alt="Chrome MV3">
   <img src="https://img.shields.io/badge/local--first-yes-7c3aed.svg" alt="Local-first">
