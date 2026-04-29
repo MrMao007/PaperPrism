@@ -111,7 +111,16 @@ jobs:
           body: |
             ## Install
 
-            ### One-line (macOS / Linux)
+            ### ⭐ Recommended — PyPI via `uv`
+            ```
+            uvx paperprism-agent serve                # one-off, no install
+            uv tool install paperprism-agent          # persistent install
+            paperprism-agent install                   # macOS auto-start at login
+            ```
+            Requires [`uv`](https://docs.astral.sh/uv/). Works on macOS,
+            Linux (any arch), and Windows.
+
+            ### One-line shell installer (macOS / Linux)
             ```
             curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packaging/install.sh | bash
             ```
@@ -131,7 +140,19 @@ jobs:
             move the `paperprism-agent` binary somewhere on your PATH, and run
             `paperprism-agent install` to register the auto-start service.
 
+            ### Chrome extension
+            Install from the
+            [Chrome Web Store](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
+            — or load the latest `paperprism-extension-<ver>-chrome.zip`
+            from this release unpacked via `chrome://extensions`.
   # TODO(v0.2): Windows (.msi via WiX) and Debian (.deb via dpkg-deb) builds.
   # Windows needs a windows-latest runner + wixtoolset; .deb needs fpm or a
   # Debian control file. Both are tracked but out-of-scope for the initial
   # macOS/Linux rollout.
+  #
+  # TODO(v0.2): Auto-publish to PyPI on tag push. Currently the `agent/` wheel
+  # is uploaded manually with `python -m build && twine upload dist/*` from a
+  # maintainer's machine (see agent/AGENTS.md → "Publishing to PyPI").
+  # Blocker for automation: `PYPI_API_TOKEN` secret or a PyPI Trusted
+  # Publisher config on the repo. Until then, README's Quick start path
+  # (uvx / uv tool install) relies on the manual PyPI upload.

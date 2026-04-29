@@ -139,7 +139,13 @@ pick up the same name.
 ## Commands cheatsheet
 
 ```bash
-# Dev loop
+# === End-user / smoke-test (consumes the published wheel) ===
+uvx paperprism-agent serve                # one-shot, ephemeral
+uv tool install paperprism-agent          # persistent install
+uv tool upgrade paperprism-agent          # after a new PyPI release
+uv cache clean paperprism-agent           # force re-download
+
+# === Dev loop (against repo source) ===
 pip install -e .
 paperprism-agent serve --log-level debug
 
@@ -153,6 +159,37 @@ sqlite3 ~/.paperprism/db.sqlite 'SELECT schema_version FROM schema_meta;'
 # Reset a user's state (destructive)
 rm -rf ~/.paperprism
 ```
+
+## Publishing to PyPI
+
+`paperprism-agent` on PyPI is the **recommended install channel** for
+end users (README's Quick start calls `uvx paperprism-agent serve`).
+The wheel is built directly from this directory — `packaging/` is NOT
+involved.
+
+```bash
+cd agent
+rm -rf dist build *.egg-info
+python -m build                           # hatchling → dist/*.whl + *.tar.gz
+twine check dist/*                        # lints README rendering, classifiers
+twine upload dist/*                       # real PyPI
+# twine upload -r testpypi dist/*         # dry-run on TestPyPI first
+```
+
+Checklist before running `twine upload`:
+
+- `pyproject.toml#version` bumped and matches the intended Git tag.
+- `authors.email` is a real, monitored inbox.
+- `license = { text = "Apache-2.0" }` and classifiers stay aligned
+  with the top-level `LICENSE` file.
+- `pyproject.toml#project.urls` points to the canonical GitHub repo.
+- `python -m build` output contains **both** wheel and sdist; upload
+  both.
+
+After publishing, bump `homebrew/paperprism-agent.rb` (separate tap)
+and update the GitHub Release body so fallback channels stay in sync.
+Also: `uv cache clean paperprism-agent` locally before smoke-testing
+to make sure `uvx` actually fetches the new version.
 
 ## Conventions for AI edits
 

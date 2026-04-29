@@ -31,10 +31,20 @@ arxiv.org  →  Chrome download (user-visible)
 
 ```
 agent/         Python 3.10+ FastAPI service. Source of truth for data model.
+               Published to PyPI as `paperprism-agent` (hatchling build).
 extension/     WXT + React + TS MV3 Chrome extension. All UI lives here.
-packaging/     install.sh, PyInstaller spec, macOS .pkg, Homebrew formula.
+               Published to the Chrome Web Store
+               (item id `jjlclcocagjnohgcpbgcpkodcnmmabif`).
+packaging/     Fallback channels: install.sh, PyInstaller spec, macOS .pkg,
+               Homebrew formula. (PyPI wheel is built from `agent/` directly,
+               not here.)
+docs/          Public-facing docs linked from the Chrome Web Store listing.
+               Currently holds `privacy.md` (Privacy Policy).
+store-promo/   Web Store marketing assets (440×280, 1400×560 PNGs).
+store-screenshots/  Web Store screenshots (1280×800 PNGs).
 .github/       Release automation (workflows/release.yml).
-README.md      End-user + developer docs.
+README.md      End-user + developer docs. Quick start section is the
+               canonical onboarding path.
 ```
 
 Per-module AGENTS.md:
@@ -65,6 +75,18 @@ Per-module AGENTS.md:
 
 ## Build / run / test cheatsheet
 
+**End-user path (NOT for editing the repo)** — this is what README's
+"Quick start" recommends, so anything an AI agent ships must not break
+it:
+
+```bash
+uvx paperprism-agent serve               # one-off, no install
+uv tool install paperprism-agent         # persistent install
+uv tool upgrade paperprism-agent         # after a new PyPI release
+```
+
+**Developer path** (editable install against the repo):
+
 ```bash
 # Agent
 cd agent
@@ -82,11 +104,17 @@ npm install                     # also runs `wxt prepare`
 npm run dev                     # hot-reload
 npm run build                   # one-shot → .output/chrome-mv3/
 npm run compile                 # tsc --noEmit (type check)
-npm run zip                     # → .output/paperprism-<ver>-chrome.zip
+npm run zip                     # → .output/paperprism-extension-<ver>-chrome.zip
+                                # (this is the zip uploaded to the Chrome Web Store)
 
-# Release packaging
+# Release packaging (fallback channels only)
 bash packaging/pyinstaller/build.sh
 bash packaging/macos/build_pkg.sh 0.1.0
+
+# PyPI release (from agent/)
+cd agent
+rm -rf dist && python -m build && twine check dist/*
+twine upload dist/*             # needs ~/.pypirc [pypi] or TWINE_* envs
 ```
 
 Health check: `curl http://127.0.0.1:17321/api/health`.
@@ -94,18 +122,29 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
 ## Versioning
 
 - Extension: bump `wxt.config.ts#manifest.version` **and**
-  `extension/package.json#version` together.
+  `extension/package.json#version` together. Upload the new
+  `paperprism-extension-<ver>-chrome.zip` via the Chrome Web Store
+  developer dashboard → re-submit for review.
 - Agent: bump `agent/pyproject.toml#version` (read at runtime for
-  `/api/health`).
+  `/api/health`). Publish to PyPI with `python -m build && twine
+  upload dist/*` from `agent/`; `uvx`/`uv tool install` users pick it
+  up automatically (may need `uv cache clean paperprism-agent` on the
+  first hit).
 - Git tag `vX.Y.Z` triggers `.github/workflows/release.yml` which
-  publishes PyInstaller binary + `.pkg` to GitHub Releases.
+  publishes PyInstaller binary + `.pkg` to GitHub Releases. PyPI
+  publish is currently a manual `twine upload` step — see `agent/AGENTS.md`.
 
 ## Common pitfalls (don't re-learn these)
 
 - `pip install -e .` only links source. After **adding a new runtime
   dependency** to `pyproject.toml`, rerun `pip install -e .`, otherwise
   the Agent will crash with `ModuleNotFoundError` on next restart.
-- Agent runs on port **17321**, not 8765.
+- Agent runs on port **17321**, not 8765. If already occupied (e.g. a
+  launchd-managed instance), dev runs should use `--port 17322 --home
+  /tmp/pp-dev-home` to avoid stomping on user state.
+- `uvx`/`uv tool install` caches wheels under `~/.cache/uv/`. After
+  publishing a new PyPI version, run `uv cache clean paperprism-agent`
+  before re-verifying, otherwise you may still run the old one.
 - Chrome's MV3 service worker sleeps. Long jobs (auto-tag) must live
   server-side, with the extension polling `/api/tags/auto/{id}`.
 - WXT postinstall hook (`wxt prepare`) must succeed before `tsc` will
@@ -117,6 +156,9 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
 - `tags` are lowercased/hyphenated by `repository.normalise_tag`;
   always write via the repository helpers, never raw SQL, to keep
   normalisation consistent.
+- GitHub's `macos-13` Intel runner has been retired; `release.yml`
+  only builds `macos-arm64`. Intel Mac users run via Rosetta 2 or
+  install via `uv tool install paperprism-agent`.
 
 ## When in doubt
 

@@ -101,10 +101,11 @@ npm install                       # runs `wxt prepare` (generates .wxt/tsconfig.
 npm run dev                       # HMR dev server, opens Chrome with extension
 npm run build                     # one-shot production → .output/chrome-mv3/
 npm run compile                   # tsc --noEmit (pure type check)
-npm run zip                       # → .output/paperprism-<ver>-chrome.zip
+npm run zip                       # → .output/paperprism-extension-<ver>-chrome.zip
+                                  #   (the artifact you upload to the Chrome Web Store)
 ```
 
-Loading unpacked:
+Loading unpacked (dev or pre-review smoke test):
 `chrome://extensions` → Developer mode → Load unpacked → pick
 `extension/.output/chrome-mv3/`.
 
@@ -118,8 +119,33 @@ Defined in `wxt.config.ts`:
   - `http://127.0.0.1/*`, `http://localhost/*` (Agent)
 - `action.default_popup`: `popup.html`
 - `options_ui`: `options.html`, `open_in_tab: true`
-- `icons`: currently commented out — add `public/icon/{16,32,48,128}.png`
-  and re-enable before shipping to the Chrome Web Store.
+- `icons`: shipped from `extension/public/icon/{16,32,48,128}.png`.
+  Keep `wxt.config.ts#manifest.icons` in sync if filenames ever change.
+
+## Distribution (Chrome Web Store)
+
+- **Item id**: `jjlclcocagjnohgcpbgcpkodcnmmabif`
+- **Store URL**: <https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif>
+- **Upload artifact**: `extension/.output/paperprism-extension-<ver>-chrome.zip`
+  (produced by `npm run zip`). `wxt zip` auto-excludes sourcemaps and
+  respects the manifest, so upload it as-is — do NOT re-zip
+  `.output/chrome-mv3/` manually.
+- **Listing category**: *Productivity* (效率工具). Not *Tools*.
+- **Privacy policy URL** (required): <https://github.com/MrMao007/PaperPrism/blob/main/docs/privacy.md>.
+  Source lives at [/docs/privacy.md](../docs/privacy.md) — update there
+  and commit to `main` before submitting a new listing revision that
+  changes data handling.
+- **Marketing assets**: `/store-promo/logo-440x280.png` (small tile,
+  required) and `/store-promo/logo-1400x560.png` (marquee, optional).
+- **Screenshots**: `/store-screenshots/{1..5}.png`, each 1280×800 PNG.
+- **Permission justifications**: kept in project memory; any change to
+  `permissions` / `host_permissions` in `wxt.config.ts` requires
+  re-submitting updated justification copy and usually re-triggers
+  review.
+
+Review cycle: first submission ~1–3 working days. Rejections almost
+always cite a specific permission whose justification is too vague —
+fix the wording and resubmit; follow-up review is usually same-day.
 
 ## Conventions for AI edits
 

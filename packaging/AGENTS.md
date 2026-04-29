@@ -5,13 +5,26 @@
 
 ## Purpose
 
-Produce end-user artifacts for the **Agent** side of PaperPrism (the
-extension ships via the Chrome Web Store, not here). Targets:
+Produce **fallback** end-user artifacts for the **Agent** side of
+PaperPrism. The extension ships via the Chrome Web Store
+(item id `jjlclcocagjnohgcpbgcpkodcnmmabif`); the primary Agent
+channel is **PyPI** (`paperprism-agent`, consumed via `uvx` /
+`uv tool install`). Everything under `packaging/` exists so users who
+explicitly don't want to install `uv` still have a path.
+
+Targets:
 
 - Single-file PyInstaller binary (`paperprism-agent`).
 - macOS `.pkg` installer (wraps the binary + LaunchAgent).
 - Homebrew formula.
 - `curl | bash` quick installer.
+
+What is **NOT** built here:
+
+- **PyPI wheel + sdist** — built from `agent/` directly via
+  `python -m build`. See `agent/AGENTS.md` → "Publishing to PyPI".
+- **Chrome Web Store zip** — built from `extension/` via `npm run zip`.
+  See `extension/AGENTS.md` → "Distribution".
 
 ## Layout
 
@@ -42,17 +55,24 @@ packaging/
 1. Bump versions:
    - `agent/pyproject.toml#version`
    - `extension/package.json#version` + `wxt.config.ts#manifest.version`
-2. Commit and push.
-3. Tag: `git tag vX.Y.Z && git push --tags`.
-4. `.github/workflows/release.yml` runs:
+2. Publish to PyPI (primary channel):
+   - `cd agent && rm -rf dist && python -m build && twine upload dist/*`
+3. Upload the new zip to the Chrome Web Store:
+   - `cd extension && npm run build && npm run zip`
+   - Upload `extension/.output/paperprism-extension-<ver>-chrome.zip`
+     via the developer dashboard and submit for review.
+4. Commit and push.
+5. Tag: `git tag vX.Y.Z && git push --tags`.
+6. `.github/workflows/release.yml` runs (fallback channels):
    - macOS arm64 runner → `pyinstaller/build.sh` + `macos/build_pkg.sh`.
    - Linux arm64 + x86_64 runners → `pyinstaller/build.sh`.
    - Uploads artifacts to the GitHub Release.
-5. Update `homebrew/paperprism-agent.rb` with the new URL + SHA256 and
+7. Update `homebrew/paperprism-agent.rb` with the new URL + SHA256 and
    push the tap repo (`MrMao007/homebrew-paperprism`).
 
 Intel macOS builds have been dropped — Intel Macs use the arm64 binary
-via Rosetta 2, or install from source.
+via Rosetta 2, or install via `uv tool install paperprism-agent` /
+from source.
 
 ## Local release build
 
