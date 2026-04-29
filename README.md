@@ -179,20 +179,6 @@ paperprism-agent serve
 
 </details>
 
-### Chrome extension
-
-Install from the Chrome Web Store *(link pending)* or load unpacked:
-
-```bash
-cd extension
-npm install
-npm run build
-# Chrome -> chrome://extensions -> "Load unpacked" -> extension/.output/chrome-mv3
-```
-
-The first time you open the extension's Options page a 4-step wizard runs
-(probe Agent → pick LLM provider → enter API key → test + open Dashboard).
-
 ## Run from source
 
 The fastest way to try PaperPrism without downloading any release artifact:
