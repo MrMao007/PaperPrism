@@ -58,29 +58,83 @@ def _service_target() -> str:
     return f"{_domain()}/{LABEL}"
 
 
+def _is_under(path: Path, base: Path) -> bool:
+    """True if `path` is inside `base` (after resolving). Safe for missing paths."""
+    try:
+        path.resolve().relative_to(base.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def resolve_launcher() -> list[str]:
+    """Pick a stable argv prefix for launchd to invoke.
+
+    Launchd needs an absolute, long-lived path; it cannot rely on ``PATH`` the
+    way an interactive shell does. We enumerate the known install modes:
+
+    1. **PyInstaller one-file** (``sys.frozen``): invoke the bundled binary
+       directly (``[sys.executable]``).
+    2. **uv tool install** (``~/.local/share/uv/tools/paperprism-agent/``):
+       the venv's python and shim are both stable. Prefer the user-level
+       shim ``~/.local/bin/paperprism-agent`` if present (survives
+       reinstalls), else fall back to the venv-local shim.
+    3. **uvx / uv tool run cache** (``~/.cache/uv/``): this path rotates on
+       cache GC and would break launchd silently. Refuse and point the user
+       at ``uv tool install`` (persistent) instead.
+    4. **Plain Python venv / pipx / system interpreter**: use
+       ``[sys.executable, "-m", "paperprism_agent"]`` which works for any
+       site-packages layout that has the package importable.
+
+    The caller is expected to append the subcommand (e.g. ``serve``).
+    """
+    exe = Path(sys.executable)
+
+    # (1) Frozen binary.
+    if getattr(sys, "frozen", False):
+        return [str(exe), "serve"]
+
+    home = Path.home()
+    uv_tools_root = home / ".local" / "share" / "uv" / "tools"
+    uv_cache_root = home / ".cache" / "uv"
+
+    # (2) uv tool install.
+    if _is_under(exe, uv_tools_root):
+        user_shim = home / ".local" / "bin" / "paperprism-agent"
+        if user_shim.exists():
+            return [str(user_shim), "serve"]
+        venv_shim = exe.parent / "paperprism-agent"
+        if venv_shim.exists():
+            return [str(venv_shim), "serve"]
+        # Falls through to the default path below, which still works.
+
+    # (3) Ephemeral uvx cache: refuse.
+    if _is_under(exe, uv_cache_root):
+        raise RuntimeError(
+            f"Detected an ephemeral `uvx` environment at {exe}.\n"
+            "Launchd needs a stable launcher path, but uvx runs from a cache "
+            "directory that can be garbage-collected at any time.\n\n"
+            "Run this instead:\n"
+            "    uv tool install paperprism-agent\n"
+            "    paperprism-agent install\n"
+        )
+
+    # (4) Default: module invocation via the current interpreter.
+    return [str(exe), "-m", "paperprism_agent", "serve"]
+
+
 def build_plist(cfg: Config) -> dict:
     """Assemble the plist document.
 
-    Two launch strategies are supported:
+    The launcher argv is chosen by :func:`resolve_launcher`, which picks a
+    stable path appropriate for the current install mode (frozen binary,
+    ``uv tool``, or a regular venv). Ephemeral ``uvx`` invocations are
+    rejected because their paths rotate and would quietly break launchd.
 
-    1. **Source / editable install** (the default): we invoke
-       ``sys.executable -m paperprism_agent serve`` so whichever venv the
-       user ran `install` from becomes the interpreter launchd boots.
-       Upgrades are then just `pip install -e .` + `paperprism-agent install`.
-
-    2. **Frozen binary** (PyInstaller one-file, e.g. distributed via .pkg or
-       the Homebrew cask): `sys.frozen` is truthy and `sys.executable` points
-       at the bundled binary itself. We invoke it directly with ``serve``,
-       skipping the ``-m paperprism_agent`` indirection that only makes
-       sense when a real Python interpreter is available.
-
-    If `~/.paperprism/secrets.env` exists, allowlisted keys from it are
-    baked into `EnvironmentVariables` so the Agent subprocess sees them.
+    If ``~/.paperprism/secrets.env`` exists, allowlisted keys from it are
+    baked into ``EnvironmentVariables`` so the Agent subprocess sees them.
     """
-    if getattr(sys, "frozen", False):
-        program_arguments = [sys.executable, "serve"]
-    else:
-        program_arguments = [sys.executable, "-m", "paperprism_agent", "serve"]
+    program_arguments = resolve_launcher()
 
     env = {
         # launchd's default PATH is very thin; pad it with the usual suspects

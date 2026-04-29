@@ -159,7 +159,12 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     cfg.paths.ensure()
 
-    plist = launchd_mod.write_plist(cfg)
+    try:
+        plist = launchd_mod.write_plist(cfg)
+    except RuntimeError as exc:
+        # Typically raised when invoked via an ephemeral `uvx` environment.
+        print(str(exc), file=sys.stderr)
+        return 2
     print(f"Wrote plist: {plist}")
 
     launchd_mod.bootstrap()

@@ -20,13 +20,50 @@ Topic pages talk to.
 
 ## Quick start
 
+The Agent ships on [PyPI](https://pypi.org/project/paperprism-agent/) as
+`paperprism-agent`. Pick whichever install mode suits you.
+
+### Option A — `uvx` (zero-install, one-off)
+
+Best for "just try it" or CI smoke tests. No venv to manage.
+
+```bash
+# Needs uv 0.4+ — see https://docs.astral.sh/uv/
+uvx paperprism-agent serve
+```
+
+Each invocation runs in a throwaway environment, so this is **not**
+suitable for `paperprism-agent install` (launchd needs a stable path —
+see Option B).
+
+### Option B — `uv tool install` (recommended for daily use)
+
+Installs a stable shim at `~/.local/bin/paperprism-agent` that launchd
+can call into. Upgrades are `uv tool upgrade`.
+
+```bash
+uv tool install paperprism-agent
+paperprism-agent serve            # foreground test
+paperprism-agent install          # register launchd LaunchAgent (macOS)
+```
+
+### Option C — `pipx` / `pip` in a venv
+
+```bash
+pipx install paperprism-agent
+# or
+python3 -m venv .venv && source .venv/bin/activate
+pip install paperprism-agent
+paperprism-agent serve
+```
+
+### Option D — editable checkout (for contributors)
+
 ```bash
 cd agent
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
-
-# Foreground run (Ctrl+C to stop)
+pip install -e '.[dev]'
 paperprism-agent serve
 # or equivalently:
 python -m paperprism_agent serve

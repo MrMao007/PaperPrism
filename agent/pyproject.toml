@@ -1,10 +1,44 @@
 [project]
 name = "paperprism-agent"
 version = "0.1.0"
-description = "Local Agent for PaperPrism: receives download events from the Chrome extension and mirrors papers into a hidden vault."
+description = "Local-first Agent for PaperPrism: receives arxiv download events from the Chrome extension and mirrors papers into a hidden vault with LLM-powered tagging."
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
+
+authors = [
+    { name = "MrMao007", email = "mty1209@gmail.com" },
+]
+keywords = [
+    "arxiv",
+    "papers",
+    "research",
+    "chrome-extension",
+    "local-first",
+    "pdf",
+    "llm",
+    "knowledge-management",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Utilities",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
@@ -20,7 +54,16 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
+    "build>=1.2.0",
+    "twine>=5.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/MrMao007/PaperPrism"
+Repository = "https://github.com/MrMao007/PaperPrism"
+Issues = "https://github.com/MrMao007/PaperPrism/issues"
+Documentation = "https://github.com/MrMao007/PaperPrism#readme"
+Changelog = "https://github.com/MrMao007/PaperPrism/releases"
 
 [project.scripts]
 paperprism-agent = "paperprism_agent.cli:main"
@@ -29,8 +72,24 @@ paperprism-agent = "paperprism_agent.cli:main"
 requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
+# ---- wheel ----
+# hatchling auto-includes everything under `packages`, including SQL
+# migrations and default YAML resources. No need for force-include; adding
+# it causes duplicate-name warnings during wheel build.
 [tool.hatch.build.targets.wheel]
 packages = ["src/paperprism_agent"]
 
+# ---- sdist ----
+# Ship enough for downstream rebuilds (build system + source + docs + license).
 [tool.hatch.build.targets.sdist]
-include = ["src/paperprism_agent", "README.md", "pyproject.toml"]
+include = [
+    "src/paperprism_agent",
+    "README.md",
+    "pyproject.toml",
+    "LICENSE",
+]
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyo",
+]
