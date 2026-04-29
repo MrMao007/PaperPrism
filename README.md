@@ -1,5 +1,18 @@
 # PaperPrism
 <img width="1024" height="314" alt="1777376072343image" src="https://github.com/user-attachments/assets/1da69e2d-9a92-45e2-995e-eb2f100e88b6" />
+
+<p align="center">
+  <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/v/paperprism-agent.svg?label=PyPI&color=2b6cb0" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/pyversions/paperprism-agent.svg?label=python" alt="Python versions"></a>
+  <a href="https://pypi.org/project/paperprism-agent/"><img src="https://img.shields.io/pypi/dm/paperprism-agent.svg?label=PyPI%20downloads" alt="PyPI downloads"></a>
+  <a href="https://github.com/MrMao007/PaperPrism/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-brightgreen.svg" alt="License: Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/manifest-MV3-f59e0b.svg" alt="Chrome MV3">
+  <img src="https://img.shields.io/badge/local--first-yes-7c3aed.svg" alt="Local-first">
+  <a href="https://github.com/MrMao007/PaperPrism/actions/workflows/release.yml"><img src="https://github.com/MrMao007/PaperPrism/actions/workflows/release.yml/badge.svg?branch=main" alt="Release CI"></a>
+  <a href="https://github.com/MrMao007/PaperPrism/releases/latest"><img src="https://img.shields.io/github/v/release/MrMao007/PaperPrism?display_name=tag&sort=semver" alt="Latest release"></a>
+  <a href="https://github.com/MrMao007/PaperPrism/stargazers"><img src="https://img.shields.io/github/stars/MrMao007/PaperPrism?style=social" alt="GitHub stars"></a>
+</p>
+
 A local-first, privacy-preserving arxiv paper organizer. A Chrome extension
 watches your arxiv downloads; a tiny local Agent mirrors each paper into a
 hidden workspace, extracts metadata, and classifies them with your LLM of
