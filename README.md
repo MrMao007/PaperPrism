@@ -23,30 +23,76 @@ choice. No papers ever leave your machine.
 
 ## Install (end users)
 
-### macOS — one line
+### ⭐ Recommended — `uv tool install` (any OS)
+
+This is the **primary, officially supported path**. It works on macOS
+(Apple Silicon & Intel), Linux, and WSL. No prebuilt binary, no
+signature pop-ups, no Rosetta — just one Python package pulled from PyPI
+with everything (SQL migrations, default configs) bundled in.
+
+Prerequisite: [uv](https://docs.astral.sh/uv/) 0.4+.
 
 ```bash
+# Install uv itself if you haven't (https://docs.astral.sh/uv/#installation)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install PaperPrism Agent (persistent shim at ~/.local/bin/paperprism-agent)
+uv tool install paperprism-agent
+
+# Verify
+paperprism-agent version        # -> 0.1.0
+
+# macOS: register a LaunchAgent so it auto-starts at login + auto-restarts
+paperprism-agent install
+paperprism-agent status         # -> state = running
+
+# Linux / WSL: run in foreground (systemd user unit is on the v0.2 roadmap)
+paperprism-agent serve
+```
+
+Upgrade any time with `uv tool upgrade paperprism-agent` followed by
+`paperprism-agent restart`.
+
+#### One-off try with `uvx` (no install)
+
+```bash
+uvx paperprism-agent serve
+```
+
+Great for kicking the tires from a throwaway env. **Do not** combine
+with `paperprism-agent install` — the `install` subcommand refuses to
+register a LaunchAgent pointed at the ephemeral `uvx` cache (that path
+can be garbage-collected at any time). For a permanent setup use
+`uv tool install` above.
+
+### Alternative installers
+
+Only use these if you don't want to install `uv` on the machine.
+
+<details>
+<summary><strong>macOS — <code>.pkg</code> installer / one-line shell script</strong></summary>
+
+```bash
+# One-line (downloads the latest binary from GitHub Releases into ~/.local/bin
+# and registers a LaunchAgent; override prefix via PAPERPRISM_PREFIX=...):
 curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
 ```
 
-This downloads the latest `paperprism-agent` binary from GitHub Releases,
-drops it in `~/.local/bin`, and registers a LaunchAgent so it auto-starts
-at login. Override the install prefix via `PAPERPRISM_PREFIX=...`.
-
-### macOS — .pkg installer
-
-Download `paperprism-agent-<version>-macos-arm64.pkg` from the
+Or grab `paperprism-agent-<version>-macos-arm64.pkg` from the
 [Releases page](https://github.com/MrMao007/PaperPrism/releases) and
 double-click. The installer places the binary under `/usr/local` and
 registers the LaunchAgent for your account automatically.
 
-> **Intel Macs (pre-2020)**: we no longer ship a native x86_64 binary
-> (GitHub's Intel CI runners are being retired). Intel Macs can still run
-> the arm64 `.pkg` via Rosetta 2 (`softwareupdate --install-rosetta`), or
-> install from source with `pip install -e agent/` and
-> `paperprism-agent install`.
+Intel Macs (pre-2020): we no longer ship a native x86_64 binary (GitHub's
+Intel CI runners are being retired). Intel Macs can still run the arm64
+`.pkg` via Rosetta 2 (`softwareupdate --install-rosetta`), or — much
+simpler — just use the **recommended `uv tool install` path above**,
+which is fully native on Intel.
 
-### macOS / Linux — Homebrew
+</details>
+
+<details>
+<summary><strong>macOS / Linux — Homebrew</strong></summary>
 
 ```bash
 brew tap MrMao007/paperprism
@@ -54,7 +100,10 @@ brew install paperprism-agent
 brew services start paperprism-agent
 ```
 
-### Linux — one line
+</details>
+
+<details>
+<summary><strong>Linux — one-line shell script</strong></summary>
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
@@ -63,15 +112,20 @@ curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/
 Auto-start on Linux is not yet wired up — run `paperprism-agent serve`
 manually or set up a systemd user unit.
 
-### Windows / Debian
+</details>
 
-`.msi` and `.deb` artifacts are on the v0.2 roadmap. For now, install from
-source:
+<details>
+<summary><strong>Windows / Debian — install from source</strong></summary>
+
+`.msi` and `.deb` artifacts are on the v0.2 roadmap. For now, use
+`uv tool install paperprism-agent` (recommended) or install from git:
 
 ```bash
 pip install git+https://github.com/MrMao007/PaperPrism#subdirectory=agent
 paperprism-agent serve
 ```
+
+</details>
 
 ### Chrome extension
 
