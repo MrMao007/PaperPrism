@@ -20,14 +20,14 @@ choice. No papers ever leave your machine.
   resolver for legacy PDFs (filename → LLM fallback), **auto-tag on
   ingest** (each new paper gets 2–5 short LLM tags), auto-start at login.
   <p align="center">
-  <img width="2366" height="1494" alt="70312B11-77D9-4BF1-9FA5-A3E14D9C31AD" src="https://github.com/user-attachments/assets/b4d29c49-08d6-4e7e-bdd2-03548dbbef31" />
+  <img width="1183" height="747" alt="70312B11-77D9-4BF1-9FA5-A3E14D9C31AD" src="https://github.com/user-attachments/assets/b4d29c49-08d6-4e7e-bdd2-03548dbbef31" />
   </p>
 - **Tags & Topics** — every paper accumulates tags (LLM-generated on
   ingest + user-added); any selection of papers can be summarised into a
   Topic card with a name, a one-liner summary, and the full set of tags
   shared by its papers. All state stays in local SQLite.
   <p align="center">
-  <img width="800" height="730" alt="FDF3F1E1-0B56-4595-A73F-C2BDA709C97D" src="https://github.com/user-attachments/assets/abda39eb-018f-40c9-94a8-27c972dc93d8" />
+  <img width="400" height="365" alt="FDF3F1E1-0B56-4595-A73F-C2BDA709C97D" src="https://github.com/user-attachments/assets/abda39eb-018f-40c9-94a8-27c972dc93d8" />
   </p>
   
 ## Install
