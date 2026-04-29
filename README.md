@@ -48,15 +48,23 @@ The fastest way to try PaperPrism. No source checkout, no build.
 
 ### 1. Install the Chrome extension
 
-> 🛍️ **Chrome Web Store listing coming soon** — the link will appear
-> here once the review passes. In the meantime you can load the
-> extension unpacked in two clicks:
->
-> 1. Download the latest `paperprism-extension-<version>-chrome.zip`
->    from the [Releases page](https://github.com/MrMao007/PaperPrism/releases)
->    *(or build it yourself with `cd extension && npm install && npm run build && npm run zip`)*.
-> 2. Unzip it, open `chrome://extensions`, toggle **Developer mode**
->    on, click **Load unpacked**, and pick the unzipped folder.
+[![Install from Chrome Web Store](https://img.shields.io/chrome-web-store/v/jjlclcocagjnohgcpbgcpkodcnmmabif?label=Chrome%20Web%20Store&color=4285F4&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
+[![Users](https://img.shields.io/chrome-web-store/users/jjlclcocagjnohgcpbgcpkodcnmmabif?label=users&color=4285F4)](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
+[![Rating](https://img.shields.io/chrome-web-store/rating/jjlclcocagjnohgcpbgcpkodcnmmabif?color=4285F4)](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
+
+Open the [PaperPrism page on the Chrome Web Store](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
+and click **Add to Chrome**.
+
+<details>
+<summary>Or load it unpacked from a release zip (no Web Store needed)</summary>
+
+1. Download the latest `paperprism-extension-<version>-chrome.zip`
+   from the [Releases page](https://github.com/MrMao007/PaperPrism/releases)
+   *(or build it yourself with `cd extension && npm install && npm run build && npm run zip`)*.
+2. Unzip it, open `chrome://extensions`, toggle **Developer mode**
+   on, click **Load unpacked**, and pick the unzipped folder.
+
+</details>
 
 ### 2. Start the local Agent with `uvx`
 
@@ -76,7 +84,7 @@ Want the Agent to auto-start at login (macOS) and survive crashes? Use
 [the recommended `uv tool install` path](#-recommended--uv-tool-install-any-os)
 below instead of `uvx`.
 
-## Install
+## Installation
 
 ### ⭐ Recommended — `uv tool install` (any OS)
 
