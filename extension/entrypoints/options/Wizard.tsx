@@ -97,7 +97,7 @@ export default function Wizard({ onComplete }: WizardProps) {
   async function openDashboardAndClose() {
     onComplete();
     const url = await getDashboardUrl();
-    await chrome.tabs.create({ url, active: true });
+        window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   return (

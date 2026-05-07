@@ -55,12 +55,18 @@ folder. The Agent owns the vault.
    user re-configure the Agent URL, token, LLM provider / model / key,
    auto-tag-on-ingest toggle, and enrichment / classification switches.
 7. **Dashboard** (`entrypoints/dashboard/`) renders a full SPA inside
-   the extension: paginated / filterable paper list, tag chip editor,
-   per-row PDF viewer, delete, a **bulk toolbar** with
-   **Import folder** (streams every PDF to `/api/ingest/upload` with
-   live progress) and **Auto-tag selected** (drives a topic-synthesis
-   job and navigates to the resulting Topic page), plus a **Topics**
-   tab listing every saved topic.
+   the extension: paginated / filterable paper list with **three-way
+   search** (FTS5 full-text + tag name + title/abstract LIKE fallback,
+   auto-split by whitespace), **LLM-generated TL;DR summaries** inline
+   in the abstract column (background / method / key result; falls back
+   to raw abstract when no summary), **inline tag editing** (add via
+   Enter, remove via ×, no expanded row needed), per-row PDF viewer,
+   delete, a **bulk toolbar** with **Import folder** (streams every PDF
+   to `/api/ingest/upload` with live progress) and **Auto-tag selected**
+   (drives a topic-synthesis job and navigates to the resulting Topic
+   page), plus a **Topics** tab listing every saved topic. A **Research
+   Weekly** sidebar is always visible and shows LLM-generated weekly
+   digests.
 
 ## Layout
 
@@ -169,10 +175,14 @@ The Agent is responsible for:
 2. Copying the file from `downloadPath` into the vault (not moving — the
    original stays in Downloads as the user expects).
 3. Fetching arxiv API metadata + parsing PDF abstract.
-4. Running LLM classification (topic / task / venue / methods).
+4. Running LLM classification (topic / task / venue / methods / summary).
 5. **Auto-tagging** the paper with 2–5 short LLM tags (if
    `auto_tag_on_ingest` is on).
-6. Writing `meta.json` sidecar and indexing into `db.sqlite`.
+6. **Generating a TL;DR summary** (2–3 sentences: background / method /
+   key result) as part of the same LLM call. The summary is stored in
+   the `classifications` table under the `summary` dimension and
+   displayed in the Dashboard's abstract column.
+7. Writing `meta.json` sidecar and indexing into `db.sqlite`.
 
 ## Known limitations
 
@@ -185,5 +195,5 @@ The Agent is responsible for:
   through the same arxiv-id resolution (filename → LLM fallback) and
   LLM classification + auto-tag pipeline. Expect it to be I/O- and
   token-bound on large folders.
-- **Chrome Web Store listing** is pending. For now install unpacked
-  from `.output/chrome-mv3/` after `npm run build`.
+- **Chrome Web Store listing** is live at
+  <https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif>.

@@ -268,12 +268,32 @@ export async function deletePaper(
   return (await res.json()) as DeletePaperResponse;
 }
 
+/** Request body for POST /api/events/track. */
+export interface TrackEventBody {
+  event_type: string;
+  subject_type: string;
+  subject_id: string;
+  actor?: string;
+  payload?: Record<string, unknown>;
+}
+
+/** Append a single L1 read-behaviour event to the ledger. */
+export async function trackEvent(body: TrackEventBody): Promise<void> {
+  const res = await authedFetch('/api/events/track', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    console.warn('trackEvent failed:', res.status, await res.text().catch(() => ''));
+  }
+}
+
 /**
  * Fetch the PDF bytes of a paper (respects auth token) and open the
- * resulting blob URL in a new browser tab.  Returns the paper id on
- * success; throws if the agent is unreachable or returns non-2xx.
+ * resulting blob URL in a new browser tab.  Tracks paper.opened and
+ * paper.read_session (≥ 30 s) automatically.
  */
-export async function openPaperPdf(paperId: number): Promise<void> {
+export async function openPaperPdf(paperId: number, arxivId: string): Promise<void> {
   const res = await authedFetch(`/api/papers/${paperId}/pdf`, { method: 'GET' });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
@@ -281,9 +301,42 @@ export async function openPaperPdf(paperId: number): Promise<void> {
   }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
-  // Release the object URL after the new tab has had a chance to load.
-  window.open(url, '_blank', 'noopener,noreferrer');
+  // Open without any feature string so the browser returns a usable WindowProxy.
+  const win = window.open(url, '_blank');
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+
+  // L1: paper.opened
+  void trackEvent({
+    event_type: 'paper.opened',
+    subject_type: 'paper',
+    subject_id: arxivId,
+    payload: { source: 'dashboard_pdf_button' },
+  });
+
+  // L1: paper.read_session (≥ 30 s)
+  if (win) {
+    const start = Date.now();
+    const interval = setInterval(() => {
+      try {
+        if (win.closed) {
+          clearInterval(interval);
+          const elapsed = Math.round((Date.now() - start) / 1000);
+          if (elapsed >= 30) {
+            void trackEvent({
+              event_type: 'paper.read_session',
+              subject_type: 'paper',
+              subject_id: arxivId,
+              payload: { duration_seconds: elapsed },
+            });
+          }
+        }
+      } catch {
+        // Cross-origin WindowProxy access may throw; ignore.
+      }
+    }, 1000);
+  } else {
+    console.warn('[PaperPrism] window.open returned null; read_session will not be tracked');
+  }
 }
 
 // --------------- LLM config API ---------------
@@ -533,4 +586,154 @@ export async function retryAutoTagJob(
     throw new Error(`Failed to retry auto-tag job: ${res.status} ${text}`);
   }
   return (await res.json()) as AutoTagJobSnapshot;
+}
+
+// --------------- Memory Ledger (events) API ---------------
+
+export interface EventItem {
+  id: number;
+  ts: string;
+  actor: 'user' | 'agent' | 'llm' | 'system';
+  event_type: string;
+  subject_type: 'paper' | 'tag' | 'topic';
+  subject_id: string;
+  related_ids: string[] | null;
+  payload: Record<string, unknown> | null;
+  schema_v: number;
+}
+
+export interface EventsListResponse {
+  items: EventItem[];
+  next_cursor: number | null;
+}
+
+export interface TimelineResponse {
+  paper_id: number;
+  arxiv_id: string | null;
+  events: EventItem[];
+}
+
+export interface FetchEventsParams {
+  subject_type?: 'paper' | 'tag' | 'topic';
+  subject_id?: string;
+  event_type?: string;
+  actor?: 'user' | 'agent' | 'llm' | 'system';
+  since?: string;
+  limit?: number;
+  cursor?: number;
+}
+
+export async function fetchEvents(
+  params: FetchEventsParams = {},
+): Promise<EventsListResponse> {
+  const qs = new URLSearchParams();
+  if (params.subject_type) qs.set('subject_type', params.subject_type);
+  if (params.subject_id) qs.set('subject_id', params.subject_id);
+  if (params.event_type) qs.set('event_type', params.event_type);
+  if (params.actor) qs.set('actor', params.actor);
+  if (params.since) qs.set('since', params.since);
+  if (params.limit != null) qs.set('limit', String(params.limit));
+  if (params.cursor != null) qs.set('cursor', String(params.cursor));
+  const res = await authedFetch(`/api/events?${qs.toString()}`, { method: 'GET' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch events: ${res.status}`);
+  }
+  return (await res.json()) as EventsListResponse;
+}
+
+export async function fetchPaperTimeline(
+  paperId: number,
+): Promise<TimelineResponse> {
+  const res = await authedFetch(`/api/papers/${paperId}/timeline`, {
+    method: 'GET',
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch timeline: ${res.status}`);
+  }
+  return (await res.json()) as TimelineResponse;
+}
+
+// ---------- Navigator / Map ----------
+
+/** A single point on the 2D embedding map. */
+export interface MapPoint {
+  id?: number;
+  arxiv_id: string;
+  x: number;
+  y: number;
+  title?: string;
+}
+
+/** A single event in the trajectory line. */
+export interface TrajectorySegment {
+  arxiv_id: string;
+  ts: string;
+  event_type: string;
+}
+
+/** A candidate paper returned by the arXiv feed. */
+export interface FeedHit {
+  arxiv_id: string;
+  x: number;
+  y: number;
+  title?: string;
+  score?: number;
+}
+
+/** A blind-spot recommendation. */
+export interface BlindSpot {
+  arxiv_id: string;
+  x: number;
+  y: number;
+  score?: number;
+}
+
+/** Response shape for GET /api/map. */
+export interface MapData {
+  library: MapPoint[];
+  trajectory: TrajectorySegment[];
+  feed_hits: FeedHit[];
+  blind_spots: BlindSpot[];
+}
+
+/** Fetch the 2D embedding map. */
+export async function fetchMapData(): Promise<MapData> {
+  const res = await authedFetch('/api/map', { method: 'GET' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch map: ${res.status}`);
+  }
+  return (await res.json()) as MapData;
+}
+
+// ---------- Weekly Digest ----------
+
+export interface WeeklyDigest {
+  id: number;
+  week: string;
+  week_start: string;
+  content: string;
+  user_note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Fetch the most recent weekly digests. */
+export async function fetchWeeklyDigests(limit = 8): Promise<WeeklyDigest[]> {
+  const res = await authedFetch(`/api/weekly-digests?limit=${limit}`, { method: 'GET' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch weekly digests: ${res.status}`);
+  }
+  return (await res.json()) as WeeklyDigest[];
+}
+
+/** Update user_note on a weekly digest. */
+export async function updateDigestNote(digestId: number, userNote: string): Promise<void> {
+  const res = await authedFetch(`/api/weekly-digests/${digestId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_note: userNote }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update digest: ${res.status}`);
+  }
 }

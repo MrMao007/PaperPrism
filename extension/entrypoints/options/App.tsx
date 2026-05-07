@@ -9,7 +9,6 @@ import {
   fetchLlmConfig,
   saveLlmConfig,
   testLlmConfig,
-  type LlmConfig,
   type LlmConfigUpdate,
 } from '@/lib/agent';
 import Wizard from './Wizard';

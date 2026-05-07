@@ -14,7 +14,6 @@ export default defineConfig({
       'downloads',
       'storage',
       'notifications',
-      'tabs',
     ],
     host_permissions: [
       // Needed for chrome.downloads.download(url) on manual archive.

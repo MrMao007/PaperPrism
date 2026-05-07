@@ -19,10 +19,13 @@ choice. No papers ever leave your machine.
 
 - **Chrome extension** — popup archive button, Options first-run wizard,
   built-in Dashboard to browse / filter / view PDF / tag / delete papers,
-  one-click **Settings** entry from the Dashboard, **bulk-import an
-  existing folder of PDFs** with per-file progress, and a batch
-  **Auto-tag → Topic** panel that turns a selection of papers into a
-  themed topic page.
+  **LLM-generated TL;DR summaries** inline (background / method / key
+  result), **inline tag editing** (add via Enter, remove via ×),
+  **three-way search** (FTS5 + tag name + title/abstract fallback),
+  **Research Weekly** digest sidebar, one-click **Settings** entry from
+  the Dashboard, **bulk-import an existing folder of PDFs** with
+  per-file progress, and a batch **Auto-tag → Topic** panel that turns
+  a selection of papers into a themed topic page.
   <p align="center">
   <img width="352" height="270" alt="A31A2FD0" src="https://github.com/user-attachments/assets/3652f80f-59f8-474c-af97-da809f2a4cf2" />
   </p>
@@ -30,7 +33,10 @@ choice. No papers ever leave your machine.
   SQLite + FTS5 store, LLM classifier (OpenAI / Anthropic / Google Gemini
   / Qwen / DeepSeek / Moonshot / OpenRouter / Ollama), two-step arxiv-id
   resolver for legacy PDFs (filename → LLM fallback), **auto-tag on
-  ingest** (each new paper gets 2–5 short LLM tags), auto-start at login.
+  ingest** (each new paper gets 2–5 short LLM tags), **TL;DR summary
+  generation** on ingest (2–3 sentences: background / method / key
+  result), **PDF full-text** fed to LLM for richer classification, and
+  auto-start at login.
   <p align="center">
   <img width="1183" height="747" alt="70312B11-77D9-4BF1-9FA5-A3E14D9C31AD" src="https://github.com/user-attachments/assets/b4d29c49-08d6-4e7e-bdd2-03548dbbef31" />
   </p>

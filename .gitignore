@@ -118,6 +118,16 @@ secrets.*.env
 llm.local.yaml
 llm.*.local.yaml
 
+# Qoder workspace cache (skills, agents, references)
+.qoder/
+
+# uv lock file (agent is a library; lock belongs to the consumer)
+agent/uv.lock
+
+# Working drafts — ideas and task plans are ephemeral
+docs/ideas/
+docs/plans/
+
 # Local PaperPrism vault / DB copies that sometimes get dragged
 # into the repo by mistake.
 db.sqlite

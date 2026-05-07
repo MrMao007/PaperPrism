@@ -20,11 +20,14 @@ arxiv.org  →  Chrome download (user-visible)
    agent/ paperprism_agent/server.py (FastAPI, 127.0.0.1:17321)
      │  ingest.py → copy PDF into ~/.paperprism/vault
      │  arxiv_client.py + pdf.py → enrich metadata
-     │  classifier.py → LLM dimension labels
+     │  classifier.py → LLM dimension labels + TL;DR summary
      │  tagger.py → 2–5 short tags per paper (auto-tag on ingest)
      │  repository.py → write to ~/.paperprism/db.sqlite
+     │  events.py       → append-only ledger (same TXN)
      ▼
    extension/ dashboard/ renders list/filter/topics via REST API
+                     │  LLM TL;DR summaries, inline tag editing,
+                     │  three-way search, Research Weekly sidebar
 ```
 
 ## Repo layout (only what matters)
@@ -32,6 +35,8 @@ arxiv.org  →  Chrome download (user-visible)
 ```
 agent/         Python 3.10+ FastAPI service. Source of truth for data model.
                Published to PyPI as `paperprism-agent` (hatchling build).
+               Includes Memory Ledger (SQLite `events` table) — every
+               mutation is logged append-only inside the same TXN.
 extension/     WXT + React + TS MV3 Chrome extension. All UI lives here.
                Published to the Chrome Web Store
                (item id `jjlclcocagjnohgcpbgcpkodcnmmabif`).
@@ -156,6 +161,10 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
 - `tags` are lowercased/hyphenated by `repository.normalise_tag`;
   always write via the repository helpers, never raw SQL, to keep
   normalisation consistent.
+- `~/.paperprism/dimensions.yaml` overrides the bundled default. When
+  adding a new dimension, update **both** files and restart the Agent.
+- `tabs` permission has been removed from the extension manifest;
+  use `window.open` instead of `chrome.tabs.create`.
 - GitHub's `macos-13` Intel runner has been retired; `release.yml`
   only builds `macos-arm64`. Intel Mac users run via Rosetta 2 or
   install via `uv tool install paperprism-agent`.

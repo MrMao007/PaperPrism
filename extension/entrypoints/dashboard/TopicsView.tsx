@@ -112,7 +112,7 @@ export function TopicDetailView({ slug }: { slug: string }) {
   useEffect(() => { load(); }, [load]);
 
   const onOpenPdf = useCallback(async (paper: PaperItem) => {
-    try { await openPaperPdf(paper.id); }
+    try { await openPaperPdf(paper.id, paper.arxiv_id ?? paper.full_id); }
     catch (err) { window.alert(`Open PDF failed: ${(err as Error).message}`); }
   }, []);
 

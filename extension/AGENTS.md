@@ -10,7 +10,9 @@ The capture layer **and** the user-facing UI:
 
 1. intercepts arxiv downloads and notifies the local Agent,
 2. renders a popup, an Options page (+ first-run wizard), and an
-   in-browser Dashboard SPA with paper/tag/topic views and batch tools,
+   in-browser Dashboard SPA with paper/tag/topic views, LLM TL;DR
+      summaries, inline tag editing, three-way search, weekly digest
+      sidebar, and batch tools,
 3. speaks to the Agent exclusively through `lib/agent.ts`.
 
 ## Tech choices
@@ -47,7 +49,8 @@ extension/
 │   └── dashboard/                # Full SPA (React, hash-router)
 │       ├── index.html
 │       ├── main.tsx
-│       ├── App.tsx               # paper list, filters, bulk toolbar
+│       ├── App.tsx               # paper list, filters, bulk toolbar, LLM summary,
+│       │                         #   inline tag editing, weekly research digest sidebar
 │       ├── AutoTagPanel.tsx      # modal for batch auto-tag → topic
 │       ├── TopicsView.tsx        # /#/topics + /#/topics/:slug pages
 │       ├── router.ts             # tiny hash router
@@ -113,7 +116,7 @@ Loading unpacked (dev or pre-review smoke test):
 
 Defined in `wxt.config.ts`:
 
-- `permissions`: `downloads`, `storage`, `notifications`, `tabs`
+- `permissions`: `downloads`, `storage`, `notifications`
 - `host_permissions`:
   - `https://arxiv.org/*` (PDF download triggers)
   - `http://127.0.0.1/*`, `http://localhost/*` (Agent)
@@ -160,6 +163,8 @@ fix the wording and resubmit; follow-up review is usually same-day.
   needs to be resumable (persisted in `chrome.storage` or server-side
   in a job row). Do not rely on in-memory state surviving across
   events.
+- **Don't use `chrome.tabs` API.** Opening URLs should use `window.open`.
+  The `tabs` permission was removed after Chrome Web Store review rejection.
 - **React entrypoints are separate bundles.** Shared components go in
   `lib/` or a future `lib/ui/`, not in a sibling entrypoint directory.
 - **CSS is per-entrypoint.** Styling for the Dashboard lives in

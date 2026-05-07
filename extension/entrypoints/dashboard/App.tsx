@@ -16,10 +16,11 @@ import {
 import { AutoTagPanel } from './AutoTagPanel';
 import { navigate, useHashRoute } from './router';
 import { TopicDetailView, TopicsView } from './TopicsView';
+import { WeeklySidebar } from './WeeklySidebar';
 
 const PAGE_SIZE = 20;
-const POLL_INTERVAL_MS = 15_000;
-type SortField = 'ingested_at' | 'published_at' | 'title';
+const POLL_INTERVAL_MS = 5_000;
+type SortField = 'title' | 'ingested_at';
 type SortOrder = 'asc' | 'desc';
 
 /* =============================================================== *
@@ -35,7 +36,12 @@ export default function App() {
   return (
     <div className="db-root">
       <Header route={route} agentOk={agentOk} />
-      {route.name === 'papers' && <PapersPane />}
+      {route.name === 'papers' && (
+        <div className="db-papers-layout">
+          <div className="db-papers-main"><PapersPane /></div>
+          <WeeklySidebar />
+        </div>
+      )}
       {route.name === 'topics' && <TopicsView />}
       {route.name === 'topic' && <TopicDetailView slug={route.slug} />}
     </div>
@@ -83,6 +89,14 @@ function Header({
         >
           Topics
         </a>
+        <a
+          href={chrome.runtime.getURL('map.html')}
+          className="db-nav-link"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Map
+        </a>
       </nav>
       <button
         type="button"
@@ -129,11 +143,9 @@ function PapersPane() {
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('ingested_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  const [filterDomain, setFilterDomain] = useState('');
-  const [filterAffiliation, setFilterAffiliation] = useState('');
+
   const [filterTag, setFilterTag] = useState('');
   const [dimValues, setDimValues] = useState<DimensionValues>({});
-  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
@@ -165,8 +177,6 @@ function PapersPane() {
         order: sortOrder,
       };
       if (debouncedQuery) params.q = debouncedQuery;
-      if (filterDomain) params.domain = filterDomain;
-      if (filterAffiliation) params.affiliations = filterAffiliation;
       if (filterTag) params.tag = filterTag;
       const res = await fetchPapers(params);
       setItems(res.items);
@@ -176,11 +186,11 @@ function PapersPane() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [page, debouncedQuery, sortField, sortOrder, filterDomain, filterAffiliation, filterTag]);
+  }, [page, debouncedQuery, sortField, sortOrder, filterTag]);
 
   useEffect(() => { loadPapers(); }, [loadPapers]);
 
-  useEffect(() => { setPage(0); }, [debouncedQuery, filterDomain, filterAffiliation, filterTag]);
+  useEffect(() => { setPage(0); }, [debouncedQuery, filterTag]);
 
   // Background polling (tab visible + no import / auto-tag modal open + no active load).
   const loadingRef = useRef(false);
@@ -214,10 +224,6 @@ function PapersPane() {
   function sortIndicator(field: SortField) {
     if (sortField !== field) return ' \u2195';
     return sortOrder === 'asc' ? ' \u2191' : ' \u2193';
-  }
-  function fmtDate(iso: string | null) {
-    if (!iso) return '\u2014';
-    return new Date(iso).toLocaleDateString('en-CA');
   }
 
   /* --- selection --- */
@@ -258,18 +264,17 @@ function PapersPane() {
           if (!prev.has(paper.id)) return prev;
           const next = new Set(prev); next.delete(paper.id); return next;
         });
-        if (expandedId === paper.id) setExpandedId(null);
       }
     } catch (err) {
       window.alert(`Delete failed: ${(err as Error).message}`);
     } finally {
       setDeletingId(null);
     }
-  }, [expandedId]);
+  }, []);
 
   const handleOpenPdf = useCallback(async (paper: PaperItem) => {
     setPdfLoadingId(paper.id);
-    try { await openPaperPdf(paper.id); }
+    try { await openPaperPdf(paper.id, paper.arxiv_id ?? paper.full_id); }
     catch (err) { window.alert(`Open PDF failed: ${(err as Error).message}`); }
     finally { setPdfLoadingId(null); }
   }, []);
@@ -344,18 +349,10 @@ function PapersPane() {
         <input
           className="db-search"
           type="text"
-          placeholder="Search title, abstract, venue..."
+          placeholder="Search title, abstract, tag..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <select className="db-select" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
-          <option value="">All Domains</option>
-          {(dimValues.domain ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
-        <select className="db-select" value={filterAffiliation} onChange={(e) => setFilterAffiliation(e.target.value)}>
-          <option value="">All Affiliations</option>
-          {(dimValues.affiliations ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
         {filterTag && (
           <span className="db-filter-chip">
             tag: {filterTag}
@@ -408,38 +405,30 @@ function PapersPane() {
                 />
               </th>
               <th className="db-th sortable" onClick={() => toggleSort('title')}>Title{sortIndicator('title')}</th>
-              <th className="db-th">Authors</th>
+              <th className="db-th">Abstract</th>
               <th className="db-th">Tags</th>
-              <th className="db-th">Domain</th>
-              <th className="db-th">Affiliations</th>
-              <th className="db-th">Venue</th>
-              <th className="db-th sortable" onClick={() => toggleSort('published_at')}>Published{sortIndicator('published_at')}</th>
-              <th className="db-th sortable" onClick={() => toggleSort('ingested_at')}>Ingested{sortIndicator('ingested_at')}</th>
               <th className="db-th actions-th">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && items.length === 0 && (
-              <tr><td colSpan={10} className="db-empty">Loading...</td></tr>
+              <tr><td colSpan={5} className="db-empty">Loading...</td></tr>
             )}
             {!loading && items.length === 0 && (
-              <tr><td colSpan={10} className="db-empty">No papers found.</td></tr>
+              <tr><td colSpan={5} className="db-empty">No papers found.</td></tr>
             )}
             {items.map((p) => (
               <PaperRow
                 key={p.id}
                 paper={p}
-                expanded={expandedId === p.id}
                 selected={selectedIds.has(p.id)}
                 onToggleSelect={toggleSelect}
-                onToggle={() => setExpandedId(expandedId === p.id ? null : p.id)}
                 onDelete={handleDelete}
                 onOpenPdf={handleOpenPdf}
                 onEditTags={handleTagEdit}
                 onFilterByTag={setFilterTag}
                 deleting={deletingId === p.id}
                 pdfLoading={pdfLoadingId === p.id}
-                fmtDate={fmtDate}
               />
             ))}
           </tbody>
@@ -545,200 +534,133 @@ function ImportPanel({
  * =============================================================== */
 
 function PaperRow({
-  paper, expanded, selected,
-  onToggleSelect, onToggle, onDelete, onOpenPdf, onEditTags, onFilterByTag,
-  deleting, pdfLoading, fmtDate,
+  paper, selected,
+  onToggleSelect, onDelete, onOpenPdf, onEditTags, onFilterByTag,
+  deleting, pdfLoading,
 }: {
   paper: PaperItem;
-  expanded: boolean;
   selected: boolean;
   onToggleSelect: (id: number) => void;
-  onToggle: () => void;
   onDelete: (p: PaperItem) => void;
   onOpenPdf: (p: PaperItem) => void;
   onEditTags: (paperId: number, payload: { add?: string[]; remove?: string[] }) => Promise<void>;
   onFilterByTag: (name: string) => void;
   deleting: boolean;
   pdfLoading: boolean;
-  fmtDate: (iso: string | null) => string;
 }) {
-  const cls = paper.classifications;
-  const domains = cls.domain ?? [];
-  const affiliations = cls.affiliations ?? [];
-
   const titleText = paper.title ?? paper.full_id;
-  const authorsText = paper.authors.length > 0 ? paper.authors.join(', ') : '\u2014';
-  const affiliationsText = affiliations.length > 0 ? affiliations.join(', ') : '';
-  const domainsText = domains.length > 0 ? domains.join(', ') : '';
-  const venueText = paper.venue ?? '';
+  // Prefer LLM-generated summary; fallback to raw abstract
+  const summaryCls = (paper.classifications?.summary ?? []);
+  const displayText = summaryCls.length > 0 ? summaryCls.join(' ') : (paper.abstract ?? '');
+  const isLLMSummary = summaryCls.length > 0;
 
   return (
-    <>
-      <tr className={`db-row ${expanded ? 'expanded' : ''} ${selected ? 'selected' : ''}`} onClick={onToggle}>
-        <td className="db-td db-td-check" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={() => onToggleSelect(paper.id)}
-            aria-label="Select paper"
-          />
-        </td>
-        <td className="db-td title-cell" title={titleText}>
-          <div className="db-title-text">{titleText}</div>
-          <span className="db-arxiv-id">{paper.full_id}</span>
-        </td>
-        <td className="db-td" title={authorsText}>
-          {paper.first_author ?? '\u2014'}
-          {paper.authors.length > 1 && (
-            <span className="db-et-al"> +{paper.authors.length - 1}</span>
+    <tr className={`db-row ${selected ? 'selected' : ''}`}>
+      <td className="db-td db-td-check" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(paper.id)}
+          aria-label="Select paper"
+        />
+      </td>
+      <td className="db-td title-cell" title={titleText}>
+        <div className="db-title-text">{titleText}</div>
+        <span className="db-arxiv-id">{paper.full_id}</span>
+        <div className="db-expand-meta">
+          {paper.abs_url && (
+            <a href={paper.abs_url} target="_blank" rel="noreferrer" className="db-link" onClick={(e) => e.stopPropagation()}>arxiv</a>
           )}
-        </td>
-        <td className="db-td tags-cell">
-          {paper.tags.length === 0 ? (
-            <span className="db-tags-empty">{'\u2014'}</span>
-          ) : (
-            <div className="db-row-tagstrip">
-              {paper.tags.slice(0, 4).map((t) => (
-                <span
-                  key={t.id}
-                  className={`db-tag-chip db-tag-chip-xs ${t.source === 'user' ? 'db-tag-chip-user' : 'db-tag-chip-llm'}`}
-                  title={`${t.source === 'user' ? 'user' : 'llm'} tag`}
-                  onClick={(e) => { e.stopPropagation(); onFilterByTag(t.name); }}
-                >
-                  {t.name}
-                </span>
-              ))}
-              {paper.tags.length > 4 && (
-                <span
-                  className="db-tag-chip db-tag-chip-xs db-tag-chip-more"
-                  title={paper.tags.slice(4).map((t) => t.name).join(', ')}
-                >
-                  +{paper.tags.length - 4}
-                </span>
-              )}
-            </div>
+          {paper.code_url && (
+            <a href={paper.code_url} target="_blank" rel="noreferrer" className="db-link" onClick={(e) => e.stopPropagation()}>code</a>
           )}
-        </td>
-        <td className="db-td" title={domainsText}>
-          {domains.map((d) => <span key={d} className="db-badge-dim domain">{d}</span>)}
-        </td>
-        <td className="db-td" title={affiliationsText}>
-          {affiliations.map((a) => <span key={a} className="db-badge-dim affiliation">{a}</span>)}
-        </td>
-        <td className="db-td venue-cell" title={venueText}>{paper.venue ?? '\u2014'}</td>
-        <td className="db-td date-cell">{fmtDate(paper.published_at)}</td>
-        <td className="db-td date-cell">{fmtDate(paper.ingested_at)}</td>
-        <td className="db-td actions-cell" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className="db-pdf-btn"
-            disabled={pdfLoading}
-            onClick={(e) => { e.stopPropagation(); onOpenPdf(paper); }}
-            title="Open PDF in new tab"
-          >
-            {pdfLoading ? '...' : 'PDF'}
-          </button>
-          <button
-            type="button"
-            className="db-delete-btn"
-            disabled={deleting}
-            onClick={(e) => { e.stopPropagation(); onDelete(paper); }}
-            title="Delete paper (DB row + vault files)"
-          >
-            {deleting ? '...' : 'Delete'}
-          </button>
-        </td>
-      </tr>
-      {expanded && (
-        <tr className="db-expand-row">
-          <td colSpan={10}>
-            <div className="db-abstract">
-              {paper.abstract
-                ? paper.abstract.length > 600
-                  ? paper.abstract.slice(0, 600) + '...'
-                  : paper.abstract
-                : 'No abstract available.'}
-            </div>
-            <TagEditor paper={paper} onEditTags={onEditTags} />
-            <div className="db-expand-meta">
-              <button
-                type="button"
-                className="db-link db-link-btn"
-                onClick={(e) => { e.stopPropagation(); onOpenPdf(paper); }}
-                disabled={pdfLoading}
-              >
-                {pdfLoading ? 'opening...' : 'Open PDF'}
-              </button>
-              {paper.abs_url && (
-                <a href={paper.abs_url} target="_blank" rel="noreferrer" className="db-link">arxiv</a>
-              )}
-              {paper.code_url && (
-                <a href={paper.code_url} target="_blank" rel="noreferrer" className="db-link">code</a>
-              )}
-              {paper.arxiv_categories.length > 0 && (
-                <span className="db-cats">{paper.arxiv_categories.join(', ')}</span>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
-    </>
+        </div>
+      </td>
+      <td className="db-td abstract-cell" title={displayText}>
+        <div className={`db-abstract-inline ${isLLMSummary ? 'db-abstract-llm' : ''}`}>
+          {displayText || 'No abstract available.'}
+        </div>
+      </td>
+      <td className="db-td tags-cell" onClick={(e) => e.stopPropagation()}>
+        <InlineTagEditor paper={paper} onEditTags={onEditTags} onFilterByTag={onFilterByTag} />
+      </td>
+      <td className="db-td actions-cell">
+        <button
+          type="button"
+          className="db-pdf-btn"
+          disabled={pdfLoading}
+          onClick={() => onOpenPdf(paper)}
+          title="Open PDF in new tab"
+        >
+          {pdfLoading ? '...' : 'PDF'}
+        </button>
+        <button
+          type="button"
+          className="db-delete-btn"
+          disabled={deleting}
+          onClick={() => onDelete(paper)}
+          title="Delete paper (DB row + vault files)"
+        >
+          {deleting ? '...' : 'Delete'}
+        </button>
+      </td>
+    </tr>
   );
 }
 
 /* =============================================================== *
- * Inline tag editor
+ * Inline tag editor (used directly in the Tags cell)
  * =============================================================== */
 
-function TagEditor({
-  paper, onEditTags,
+function InlineTagEditor({
+  paper, onEditTags, onFilterByTag,
 }: {
   paper: PaperItem;
   onEditTags: (paperId: number, payload: { add?: string[]; remove?: string[] }) => Promise<void>;
+  onFilterByTag: (name: string) => void;
 }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const commitAdd = useCallback(async () => {
     const raw = input.trim();
     if (!raw) return;
-    // split by comma / whitespace; the server re-normalises so spaces become hyphens.
     const tags = raw.split(/[,\n]/).map((t) => t.trim()).filter(Boolean);
     if (tags.length === 0) return;
-    setBusy(true); setError(null);
+    setBusy(true);
     try {
       await onEditTags(paper.id, { add: tags });
       setInput('');
-    } catch (err) {
-      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   }, [input, paper.id, onEditTags]);
 
   const removeOne = useCallback(async (tag: PaperTag) => {
-    setBusy(true); setError(null);
+    setBusy(true);
     try {
       await onEditTags(paper.id, { remove: [tag.name] });
-    } catch (err) {
-      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   }, [paper.id, onEditTags]);
 
   return (
-    <div className="db-tag-editor" onClick={(e) => e.stopPropagation()}>
-      <div className="db-tag-editor-row">
-        {paper.tags.length === 0 && <span className="db-tag-editor-empty">No tags yet.</span>}
+    <div className="db-inline-tag-editor">
+      <div className="db-inline-tag-chips">
+        {paper.tags.length === 0 && <span className="db-tags-empty">{'\u2014'}</span>}
         {paper.tags.map((t) => (
           <span
             key={t.id}
             className={`db-tag-chip ${t.source === 'user' ? 'db-tag-chip-user' : 'db-tag-chip-llm'}`}
-            title={`${t.source} tag`}
+            title={`${t.source} tag${t.source === 'llm' ? '' : ' (user)'} – click × to remove`}
           >
-            {t.name}
+            <span
+              className="db-tag-chip-name"
+              onClick={() => onFilterByTag(t.name)}
+            >
+              {t.name}
+            </span>
             <button
               type="button"
               className="db-tag-chip-x"
@@ -752,19 +674,17 @@ function TagEditor({
         ))}
       </div>
       <form
-        className="db-tag-editor-form"
+        className="db-inline-tag-form"
         onSubmit={(e) => { e.preventDefault(); commitAdd(); }}
       >
         <input
           type="text"
-          placeholder="Add tags (comma-separated)…"
+          placeholder="+ tag"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={busy}
         />
-        <button type="submit" disabled={busy || !input.trim()}>Add</button>
       </form>
-      {error && <div className="db-tag-error">{error}</div>}
     </div>
   );
 }

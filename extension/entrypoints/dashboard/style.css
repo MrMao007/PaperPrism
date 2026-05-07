@@ -118,6 +118,10 @@ body {
   flex-direction: column;
   gap: 16px;
 }
+/* When papers layout is active, remove max-width to make room for sidebar */
+.db-root:has(.db-papers-layout) {
+  max-width: none;
+}
 
 /* ---------- Header ---------- */
 
@@ -294,7 +298,8 @@ body {
 }
 
 .title-cell {
-  max-width: 320px;
+  max-width: 260px;
+  min-width: 180px;
 }
 
 .db-title-text {
@@ -315,6 +320,22 @@ body {
 .db-et-al {
   color: var(--pp-text-muted);
   font-size: 11px;
+}
+
+.abstract-cell {
+  max-width: 400px;
+  min-width: 200px;
+}
+
+.db-abstract-inline {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pp-text-muted);
+  overflow: hidden;
+}
+.db-abstract-llm {
+  color: var(--pp-text);
+  opacity: 0.92;
 }
 
 .venue-cell {
@@ -916,8 +937,8 @@ body {
 }
 
 .tags-cell {
-  max-width: 220px;
-  min-width: 140px;
+  max-width: 280px;
+  min-width: 160px;
 }
 
 .db-tags-empty {
@@ -925,67 +946,45 @@ body {
   font-size: 12px;
 }
 
-/* ---------- Inline tag editor ---------- */
+/* ---------- Inline tag editor (in cell) ---------- */
 
-.db-tag-editor {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--pp-border);
-}
-.db-tag-editor-row {
+.db-inline-tag-editor {
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 10px;
-}
-.db-tag-editor-empty {
-  font-size: 12px;
-  color: var(--pp-text-muted);
-  font-style: italic;
-}
-.db-tag-editor-form {
-  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
-.db-tag-editor-form input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid var(--pp-border-strong);
-  border-radius: var(--pp-radius-sm);
-  font-size: 12px;
+
+.db-inline-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.db-tag-chip-name {
+  cursor: pointer;
+}
+
+.db-inline-tag-form {
+  display: flex;
+}
+.db-inline-tag-form input {
+  width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--pp-border);
+  border-radius: 4px;
+  font-size: 11px;
   outline: none;
   background: var(--pp-surface);
   color: var(--pp-text);
   transition: border-color 120ms var(--pp-ease),
     box-shadow 120ms var(--pp-ease);
 }
-.db-tag-editor-form input:focus {
+.db-inline-tag-form input:focus {
   border-color: var(--pp-accent);
-  box-shadow: 0 0 0 3px var(--pp-accent-ring);
+  box-shadow: 0 0 0 2px var(--pp-accent-ring);
 }
-.db-tag-editor-form button {
-  padding: 6px 14px;
-  border: 1px solid var(--pp-accent);
-  background: var(--pp-accent);
-  color: #fff;
-  border-radius: var(--pp-radius-sm);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms var(--pp-ease);
-}
-.db-tag-editor-form button:hover:not(:disabled) {
-  background: var(--pp-accent-hover);
-  border-color: var(--pp-accent-hover);
-}
-.db-tag-editor-form button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.db-tag-error {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--pp-danger);
+.db-inline-tag-form input::placeholder {
+  color: var(--pp-text-subtle);
 }
 
 /* ---------- Auto-tag panel extras ---------- */
@@ -1259,4 +1258,175 @@ body {
 .db-tag-chip:focus-visible {
   outline: 2px solid var(--pp-accent);
   outline-offset: 2px;
+}
+
+/* ================================================================ *
+ * Weekly Sidebar
+ * ================================================================ */
+
+.db-papers-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.db-papers-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.wd-sidebar {
+  width: 320px;
+  min-width: 320px;
+  border-left: 1px solid var(--pp-border);
+  background: var(--pp-surface);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wd-title {
+  margin: 0;
+  padding: 14px 16px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pp-text);
+  border-bottom: 1px solid var(--pp-border);
+  flex-shrink: 0;
+}
+
+.wd-loading,
+.wd-error,
+.wd-empty {
+  padding: 20px 16px;
+  font-size: 13px;
+  color: var(--pp-text-muted);
+}
+.wd-error {
+  color: #ef4444;
+}
+
+.wd-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.wd-card {
+  border: 1px solid var(--pp-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.wd-card:hover {
+  border-color: var(--pp-accent);
+}
+.wd-card--expanded {
+  border-color: var(--pp-accent);
+  background: var(--pp-surface-alt);
+}
+
+.wd-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wd-card-week {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pp-text);
+}
+.wd-card-date {
+  font-size: 11px;
+  color: var(--pp-text-muted);
+}
+
+.wd-card-body {
+  margin-top: 10px;
+  cursor: default;
+}
+
+.wd-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pp-text);
+  white-space: pre-wrap;
+}
+
+.wd-note-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--pp-border);
+  padding-top: 10px;
+}
+.wd-note-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--pp-text-muted);
+  margin-bottom: 6px;
+}
+
+.wd-note-display {
+  font-size: 13px;
+  color: var(--pp-text-muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px dashed transparent;
+  transition: border-color 0.15s;
+}
+.wd-note-display:hover {
+  border-color: var(--pp-border);
+}
+
+.wd-note-placeholder {
+  font-style: italic;
+}
+
+.wd-note-textarea {
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 8px;
+  border: 1px solid var(--pp-border);
+  border-radius: 6px;
+  background: var(--pp-surface);
+  color: var(--pp-text);
+  resize: vertical;
+  box-sizing: border-box;
+}
+.wd-note-textarea:focus {
+  outline: none;
+  border-color: var(--pp-accent);
+}
+
+.wd-note-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.wd-note-save,
+.wd-note-cancel {
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--pp-border);
+}
+.wd-note-save {
+  background: var(--pp-accent);
+  color: #fff;
+  border-color: var(--pp-accent);
+}
+.wd-note-save:disabled {
+  opacity: 0.5;
+}
+.wd-note-cancel {
+  background: var(--pp-surface);
+  color: var(--pp-text);
 }

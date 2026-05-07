@@ -1,6 +1,6 @@
 # PaperPrism Privacy Policy
 
-**Last updated:** 2026-04-29
+**Last updated:** 2026-05-08
 **Contact:** mty1209@gmail.com · <https://github.com/MrMao007/PaperPrism>
 
 ## Summary
@@ -27,7 +27,7 @@ No paper content, no PDF bytes, and no API keys are stored in
 
 - `~/.paperprism/vault/` — archived PDF files.
 - `~/.paperprism/db.sqlite` — local SQLite database (paper metadata,
-  tags, topics).
+  tags, topics, LLM-generated summaries and dimension labels).
 - `~/.paperprism/secrets.env` — user's LLM API keys, mode `600`
   (readable only by the user).
 - `~/.paperprism/logs/` — rotating log files.
@@ -51,9 +51,11 @@ PaperPrism-operated server.
 When the user configures an LLM provider, the local Agent (running on
 the user's own machine) makes outbound HTTPS calls to that provider's
 API (OpenAI, Anthropic, Google, Qwen, DeepSeek, Moonshot, OpenRouter,
-or a local Ollama instance) to classify and tag the paper. The user
-chooses the provider, supplies the API key, and can opt out at any
-time. These calls are governed by the chosen provider's privacy
+or a local Ollama instance) to classify and tag the paper. The text
+sent to the LLM includes the paper's title, abstract, and (when
+available) the full PDF text (truncated to a configurable limit). The
+user chooses the provider, supplies the API key, and can opt out at
+any time. These calls are governed by the chosen provider's privacy
 policy.
 
 ## Data sharing

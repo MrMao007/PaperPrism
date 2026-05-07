@@ -35,7 +35,7 @@ export default function App() {
 
   async function openDashboard() {
     const url = await getDashboardUrl();
-    await chrome.tabs.create({ url, active: true });
+        window.open(url, '_blank', 'noopener,noreferrer');
     window.close();
   }
 
