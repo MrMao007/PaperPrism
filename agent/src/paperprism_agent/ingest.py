@@ -31,6 +31,7 @@ from paperprism_agent import llm as llm_module
 from paperprism_agent import pdf as pdf_module
 from paperprism_agent import repository, tasks
 from paperprism_agent.config import Config
+from paperprism_agent.events import Actor, Event, EventLogger
 from paperprism_agent.models import IngestRequest, IngestResponse, UploadIngestResponse
 from paperprism_agent.paths import resolve_vault
 
@@ -40,7 +41,7 @@ META_SCHEMA_VERSION = 1
 CHUNK = 1 << 20  # 1 MiB for sha256 streaming
 
 
-def handle_ingest(cfg: Config, req: IngestRequest) -> IngestResponse:
+def handle_ingest(cfg: Config, req: IngestRequest, *, actor: Actor = "user") -> IngestResponse:
     """Dispatch on event type. Pure sync -- copying is fast enough for MVP."""
     if req.event == "archive.requested":
         log.info(
@@ -54,10 +55,10 @@ def handle_ingest(cfg: Config, req: IngestRequest) -> IngestResponse:
             message="Noted; waiting for archive.completed to pull the file.",
         )
 
-    return _handle_completed(cfg, req)
+    return _handle_completed(cfg, req, actor=actor)
 
 
-def _handle_completed(cfg: Config, req: IngestRequest) -> IngestResponse:
+def _handle_completed(cfg: Config, req: IngestRequest, *, actor: Actor = "user") -> IngestResponse:
     if not req.downloadPath:
         return IngestResponse(
             accepted=False,
@@ -120,20 +121,41 @@ def _handle_completed(cfg: Config, req: IngestRequest) -> IngestResponse:
     # file is already safely on disk. Log and move on.
     try:
         conn = db_module.connect(cfg.paths.db_file)
-        paper = repository.upsert_paper(
-            conn,
-            full_id=req.arxivId.fullId,
-            arxiv_id=req.arxivId.id,
-            version=req.arxivId.version,
-            is_legacy=req.arxivId.legacy,
-            pdf_path=str(dest_pdf),
-            vault_dir=str(dest_dir),
-            source_url=req.sourceUrl,
-            abs_url=req.absUrl,
-            sha256=src_hash,
-            size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
-        )
-        tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+        conn.execute("BEGIN")
+        try:
+            paper = repository.upsert_paper(
+                conn,
+                full_id=req.arxivId.fullId,
+                arxiv_id=req.arxivId.id,
+                version=req.arxivId.version,
+                is_legacy=req.arxivId.legacy,
+                pdf_path=str(dest_pdf),
+                vault_dir=str(dest_dir),
+                source_url=req.sourceUrl,
+                abs_url=req.absUrl,
+                sha256=src_hash,
+                size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
+            )
+            tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="paper.ingested.downloaded",
+                    subject_type="paper",
+                    subject_id=req.arxivId.id,
+                    payload={
+                        "source_url": req.sourceUrl,
+                        "filename": dest_pdf.name,
+                        "vault_path": str(dest_pdf),
+                        "sha256": src_hash,
+                    },
+                ),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
     except Exception:
         log.exception("failed to register paper in DB; file is still on disk")
 
@@ -177,6 +199,7 @@ def handle_upload(
     file_bytes: bytes,
     filename: str,
     source_hint: str | None = None,
+    actor: Actor = "user",
 ) -> UploadIngestResponse:
     """Ingest a user-supplied PDF (bulk-folder import path).
 
@@ -286,20 +309,41 @@ def handle_upload(
         )
 
         # 5) register + queue enrich ---------------------------------------
-        paper = repository.upsert_paper(
-            conn,
-            full_id=full_id,
-            arxiv_id=arxiv_id_plain,
-            version=version,
-            is_legacy=is_legacy,
-            pdf_path=str(dest_pdf),
-            vault_dir=str(dest_dir),
-            source_url=None,
-            abs_url=None,
-            sha256=sha,
-            size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
-        )
-        tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+        conn.execute("BEGIN")
+        try:
+            paper = repository.upsert_paper(
+                conn,
+                full_id=full_id,
+                arxiv_id=arxiv_id_plain,
+                version=version,
+                is_legacy=is_legacy,
+                pdf_path=str(dest_pdf),
+                vault_dir=str(dest_dir),
+                source_url=None,
+                abs_url=None,
+                sha256=sha,
+                size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
+            )
+            tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="paper.ingested.uploaded",
+                    subject_type="paper",
+                    subject_id=arxiv_id_plain,
+                    payload={
+                        "filename": filename,
+                        "size_bytes": len(file_bytes),
+                        "vault_path": str(dest_pdf),
+                        "sha256": sha,
+                    },
+                ),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
         log.info(
             "upload ingested paper_id=%s full_id=%s dest=%s",

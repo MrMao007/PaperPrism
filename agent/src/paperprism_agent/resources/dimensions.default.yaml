@@ -121,3 +121,18 @@ dimensions:
       Using the title, abstract, and arxiv categories, pick the single most
       specific research area. If multiple apply, pick the one the paper
       contributes to most.
+
+  - name: summary
+    kind: text
+    source: llm+metadata
+    description: LLM 生成的论文摘要（背景/方法/效果/不足）
+    max_chars: 500
+    prompt: |
+      Write a TL;DR summary of this paper in 2-3 short sentences.
+      Structure: [Background] [Method] [Key Result].
+      Rules:
+      - Each sentence should be one concise clause, not a paragraph.
+      - Do NOT copy the abstract; rephrase in plain language.
+      - Omit limitations unless the paper explicitly states one.
+      - Write in the same language as the abstract.
+      Example: "Existing GNNs scale poorly to large graphs. The authors propose a sampling-based training method that reduces memory by 10x. The approach matches full-graph accuracy on 5 benchmarks."

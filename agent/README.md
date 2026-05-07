@@ -3,9 +3,9 @@
 Local HTTP service that receives archive events from the PaperPrism Chrome
 extension, mirrors arxiv PDFs into a hidden workspace vault
 (`~/.paperprism/vault`), enriches them with arxiv-API + PDF metadata,
-classifies them with the user's LLM, auto-tags every new paper, and
-exposes a small REST API that the extension's Dashboard / Options /
-Topic pages talk to.
+classifies them with the user's LLM, generates TL;DR summaries,
+auto-tags every new paper, and exposes a small REST API that the
+extension's Dashboard / Options / Topic pages talk to.
 
 ## Stack
 
@@ -220,6 +220,7 @@ api_key_env: QWEN_API_KEY  # name of the env var holding the key
 enrichment_enabled: true   # pull arxiv API metadata + PDF abstract
 classification_enabled: true
 auto_tag_on_ingest: true   # LLM-tag every paper added via /api/ingest
+pdf_full_char_limit: 8000 # max chars of PDF full text fed to LLM classifier
 ```
 
 Secrets are never written into `llm.yaml`; they sit in

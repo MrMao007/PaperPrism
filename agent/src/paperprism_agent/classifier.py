@@ -56,11 +56,12 @@ class PaperContext:
     journal_ref: str | None
     comment: str | None
     pdf_head_text: str | None
+    pdf_full_text: str | None = None
 
 
 def has_enough_context(ctx: PaperContext) -> bool:
     """Refuse to burn tokens on nothing: require at least abstract or PDF text."""
-    return bool((ctx.abstract or "").strip() or (ctx.pdf_head_text or "").strip())
+    return bool((ctx.abstract or "").strip() or (ctx.pdf_head_text or "").strip() or (ctx.pdf_full_text or "").strip())
 
 
 def classify(
@@ -81,6 +82,7 @@ def classify(
 
     system, user = _build_prompt(ctx, dims, char_limits=(
         client.cfg.abstract_char_limit, client.cfg.pdf_head_char_limit,
+        client.cfg.pdf_full_char_limit,
     ))
     raw = client.chat_json(system=system, user=user)
     parsed = _parse_json(raw)
@@ -101,9 +103,9 @@ def _build_prompt(
     ctx: PaperContext,
     dims: list[Dimension],
     *,
-    char_limits: tuple[int, int],
+    char_limits: tuple[int, int, int],
 ) -> tuple[str, str]:
-    abstract_limit, pdf_limit = char_limits
+    abstract_limit, pdf_limit, pdf_full_limit = char_limits
 
     dim_specs: list[str] = []
     schema_sample: dict[str, Any] = {}
@@ -140,6 +142,11 @@ def _build_prompt(
         user_parts.append(
             "\nPDF first-page text (may contain affiliations / code URL):\n"
             + _truncate(ctx.pdf_head_text, pdf_limit)
+        )
+    if ctx.pdf_full_text:
+        user_parts.append(
+            "\nPDF full text (truncated):\n"
+            + _truncate(ctx.pdf_full_text, pdf_full_limit)
         )
 
     user_parts.append("\n## Dimensions to fill")

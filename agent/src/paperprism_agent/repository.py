@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
+from paperprism_agent.events import Actor, Event, EventLogger, SubjectType
+
 log = logging.getLogger("paperprism.repository")
 
 
@@ -30,6 +32,30 @@ class PaperRow:
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "PaperRow":
         return cls(id=row["id"], full_id=row["full_id"])
+
+
+def track_event(
+    conn: sqlite3.Connection,
+    *,
+    actor: Actor,
+    event_type: str,
+    subject_type: str,
+    subject_id: str,
+    payload: dict[str, Any] | None = None,
+) -> int:
+    """Append a single L1 read-behaviour event to the ledger.
+
+    Unlike mutation events, this does NOT wrap a business write; it is
+    safe to call from server.py for read-only events.
+    """
+    event = Event(
+        actor=actor,
+        event_type=event_type,
+        subject_type=subject_type,  # type: ignore[arg-type]
+        subject_id=subject_id,
+        payload=payload,
+    )
+    return EventLogger.emit(conn, event)
 
 
 def upsert_paper(
@@ -52,7 +78,9 @@ def upsert_paper(
     ).fetchone()
 
     if row is None:
-        conn.execute("BEGIN")
+        in_txn = conn.in_transaction
+        if not in_txn:
+            conn.execute("BEGIN")
         try:
             cur = conn.execute(
                 """
@@ -69,15 +97,17 @@ def upsert_paper(
                 ),
             )
             paper_id = cur.lastrowid
-            conn.execute("COMMIT")
+            if not in_txn:
+                conn.execute("COMMIT")
         except Exception:
-            conn.execute("ROLLBACK")
+            if not in_txn:
+                conn.execute("ROLLBACK")
             raise
         log.info("paper inserted id=%s full_id=%s", paper_id, full_id)
         return PaperRow(id=paper_id, full_id=full_id)
 
     # Existing row: refresh filesystem fields only (do not clobber
-    # enrichment data from P2.2/P2.3).
+    # enrichment data from P2.2/P2.3). Clear soft-delete if present.
     conn.execute(
         """
         UPDATE papers SET
@@ -86,7 +116,8 @@ def upsert_paper(
             source_url  = COALESCE(?, source_url),
             abs_url     = COALESCE(?, abs_url),
             sha256      = COALESCE(?, sha256),
-            size_bytes  = COALESCE(?, size_bytes)
+            size_bytes  = COALESCE(?, size_bytes),
+            deleted_at  = NULL
         WHERE id = ?
         """,
         (pdf_path, vault_dir, source_url, abs_url, sha256, size_bytes, row["id"]),
@@ -203,26 +234,48 @@ def find_paper_by_sha256(
     if not sha256:
         return None
     row = conn.execute(
-        "SELECT * FROM papers WHERE sha256 = ? LIMIT 1", (sha256,)
+        "SELECT * FROM papers WHERE sha256 = ? AND deleted_at IS NULL LIMIT 1", (sha256,)
     ).fetchone()
     return dict(row) if row else None
 
 
-def delete_paper(conn: sqlite3.Connection, paper_id: int) -> bool:
-    """Delete a paper and its related tasks/classifications (FK CASCADE).
-    Returns True if a row was actually removed."""
+def delete_paper(conn: sqlite3.Connection, paper_id: int, *, actor: Actor = "user") -> bool:
+    """Soft-delete a paper (set deleted_at). Returns True if a live row
+    was actually tombstoned."""
+    row = conn.execute(
+        "SELECT arxiv_id, title FROM papers WHERE id = ? AND deleted_at IS NULL",
+        (paper_id,),
+    ).fetchone()
+    if row is None:
+        return False
+
+    arxiv_id = row["arxiv_id"]
+    title = row["title"]
+    now = _now()
+
     conn.execute("BEGIN")
     try:
-        conn.execute("DELETE FROM tasks WHERE paper_id = ?", (paper_id,))
-        cur = conn.execute("DELETE FROM papers WHERE id = ?", (paper_id,))
+        conn.execute(
+            "UPDATE papers SET deleted_at = ? WHERE id = ?",
+            (now, paper_id),
+        )
+        EventLogger.emit(
+            conn,
+            Event(
+                actor=actor,
+                event_type="paper.deleted",
+                subject_type="paper",
+                subject_id=arxiv_id,
+                payload={"title_at_delete": title},
+            ),
+        )
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
         raise
-    deleted = cur.rowcount > 0
-    if deleted:
-        log.info("paper deleted id=%s", paper_id)
-    return deleted
+
+    log.info("paper soft-deleted id=%s arxiv_id=%s", paper_id, arxiv_id)
+    return True
 
 
 # Allowed sort columns (whitelist to prevent SQL injection)
@@ -252,14 +305,41 @@ def list_papers(
         order = "desc"
 
     # --- build dynamic WHERE clauses ---
-    where_parts: list[str] = []
+    where_parts: list[str] = ["p.deleted_at IS NULL"]
     params: list[object] = []
 
     if q:
+        # Tokenize: split on whitespace, join with OR for FTS5.
+        # Each token is wrapped in '"' to enable prefix matching.
+        tokens = q.strip().split()
+        fts_query = " OR ".join(f'"{t}"*' for t in tokens if t)
+        if not fts_query:
+            fts_query = '""*'
+        # Tag search: any token matches any tag name (substring)
+        tag_clauses = []
+        tag_params: list[str] = []
+        for t in tokens:
+            tag_clauses.append("t.name LIKE ?")
+            tag_params.append(f"%{t}%")
+        tag_sql = " OR ".join(tag_clauses) if tag_clauses else "1=0"
+        # LIKE fallback: title or abstract contains any token
+        like_clauses = []
+        like_params: list[str] = []
+        for t in tokens:
+            like_clauses.append("(p.title LIKE ? OR p.abstract LIKE ?)")
+            like_params.extend([f"%{t}%", f"%{t}%"])
+        like_sql = " OR ".join(like_clauses) if like_clauses else "1=0"
         where_parts.append(
-            "p.id IN (SELECT rowid FROM papers_fts WHERE papers_fts MATCH ?)"
+            "("
+            "  p.id IN (SELECT rowid FROM papers_fts WHERE papers_fts MATCH ?)"
+            "  OR p.id IN (SELECT pt.paper_id FROM paper_tags pt"
+            f"    JOIN tags t ON t.id = pt.tag_id WHERE {tag_sql})"
+            f"  OR ({like_sql})"
+            ")"
         )
-        params.append(q)
+        params.append(fts_query)
+        params.extend(tag_params)
+        params.extend(like_params)
 
     if domain:
         where_parts.append(
@@ -430,6 +510,7 @@ def add_paper_tags(
     tag_names: Iterable[str],
     source: str = "user",
     topic_id: int | None = None,
+    actor: Actor = "user",
 ) -> int:
     """Upsert each tag name and link it to the paper. Idempotent: an
     existing (paper_id, tag_id) row is left alone except its source is
@@ -442,6 +523,10 @@ def add_paper_tags(
     inserted = 0
     conn.execute("BEGIN")
     try:
+        paper_row = conn.execute(
+            "SELECT arxiv_id FROM papers WHERE id = ?", (paper_id,)
+        ).fetchone()
+        arxiv_id = paper_row["arxiv_id"] if paper_row else str(paper_id)
         for raw in tag_names:
             tag_id = upsert_tag(conn, name=raw)
             if tag_id is None:
@@ -459,6 +544,19 @@ def add_paper_tags(
                     (paper_id, tag_id, source, topic_id, _now()),
                 )
                 inserted += 1
+                event_type = (
+                    "tag.added_by_llm" if source == "llm" else "tag.added_by_user"
+                )
+                EventLogger.emit(
+                    conn,
+                    Event(
+                        actor=actor,
+                        event_type=event_type,
+                        subject_type="tag",
+                        subject_id=_norm_tag(raw),
+                        payload={"paper_id": paper_id, "arxiv_id": arxiv_id},
+                    ),
+                )
             else:
                 # Promote: llm tag later marked as user-added sticks as user.
                 if existing["source"] == "llm" and source == "user":
@@ -474,19 +572,40 @@ def add_paper_tags(
 
 
 def remove_paper_tag(
-    conn: sqlite3.Connection, *, paper_id: int, tag_name: str
+    conn: sqlite3.Connection, *, paper_id: int, tag_name: str, actor: Actor = "user"
 ) -> bool:
     norm = _norm_tag(tag_name)
     if not norm:
         return False
-    cur = conn.execute(
-        """
-        DELETE FROM paper_tags
-        WHERE paper_id = ?
-          AND tag_id IN (SELECT id FROM tags WHERE name = ?)
-        """,
-        (paper_id, norm),
-    )
+    paper_row = conn.execute(
+        "SELECT arxiv_id FROM papers WHERE id = ?", (paper_id,)
+    ).fetchone()
+    arxiv_id = paper_row["arxiv_id"] if paper_row else str(paper_id)
+    conn.execute("BEGIN")
+    try:
+        cur = conn.execute(
+            """
+            DELETE FROM paper_tags
+            WHERE paper_id = ?
+              AND tag_id IN (SELECT id FROM tags WHERE name = ?)
+            """,
+            (paper_id, norm),
+        )
+        if cur.rowcount > 0:
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="tag.removed_by_user",
+                    subject_type="tag",
+                    subject_id=norm,
+                    payload={"paper_id": paper_id, "arxiv_id": arxiv_id},
+                ),
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return cur.rowcount > 0
 
 
@@ -586,31 +705,108 @@ def create_topic(
     summary: str | None,
     model: str | None,
     source_job_id: str | None,
+    actor: Actor = "user",
 ) -> int:
-    cur = conn.execute(
-        """
-        INSERT INTO topics (slug, name, summary, model, source_job_id, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (slug, name, summary, model, source_job_id, _now()),
-    )
-    return int(cur.lastrowid)
+    conn.execute("BEGIN")
+    try:
+        cur = conn.execute(
+            """
+            INSERT INTO topics (slug, name, summary, model, source_job_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (slug, name, summary, model, source_job_id, _now()),
+        )
+        topic_id = int(cur.lastrowid)
+        EventLogger.emit(
+            conn,
+            Event(
+                actor=actor,
+                event_type="topic.created",
+                subject_type="topic",
+                subject_id=slug,
+                payload={"name": name, "summary": summary, "paper_ids": []},
+            ),
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return topic_id
 
 
 def add_topic_papers(
-    conn: sqlite3.Connection, *, topic_id: int, paper_ids: list[int]
+    conn: sqlite3.Connection, *, topic_id: int, paper_ids: list[int], actor: Actor = "user"
 ) -> int:
     inserted = 0
-    for pos, pid in enumerate(paper_ids):
-        cur = conn.execute(
-            """
-            INSERT OR IGNORE INTO topic_papers (topic_id, paper_id, position)
-            VALUES (?, ?, ?)
-            """,
-            (topic_id, pid, pos),
-        )
-        inserted += cur.rowcount
+    conn.execute("BEGIN")
+    try:
+        for pos, pid in enumerate(paper_ids):
+            cur = conn.execute(
+                """
+                INSERT OR IGNORE INTO topic_papers (topic_id, paper_id, position)
+                VALUES (?, ?, ?)
+                """,
+                (topic_id, pid, pos),
+            )
+            inserted += cur.rowcount
+        if inserted > 0:
+            topic_row = conn.execute(
+                "SELECT slug FROM topics WHERE id = ?", (topic_id,)
+            ).fetchone()
+            slug = topic_row["slug"] if topic_row else str(topic_id)
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="topic.papers_added",
+                    subject_type="topic",
+                    subject_id=slug,
+                    related_ids=[str(p) for p in paper_ids],
+                    payload={"added_count": inserted, "requested_count": len(paper_ids)},
+                ),
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
     return inserted
+
+
+def remove_topic_papers(
+    conn: sqlite3.Connection, *, topic_id: int, paper_ids: list[int], actor: Actor = "user"
+) -> int:
+    """Remove specific papers from a topic. Returns number of rows deleted."""
+    if not paper_ids:
+        return 0
+    conn.execute("BEGIN")
+    try:
+        placeholders = ",".join("?" * len(paper_ids))
+        cur = conn.execute(
+            f"DELETE FROM topic_papers WHERE topic_id = ? AND paper_id IN ({placeholders})",
+            (topic_id, *paper_ids),
+        )
+        removed = cur.rowcount
+        if removed > 0:
+            topic_row = conn.execute(
+                "SELECT slug FROM topics WHERE id = ?", (topic_id,)
+            ).fetchone()
+            slug = topic_row["slug"] if topic_row else str(topic_id)
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="topic.papers_removed",
+                    subject_type="topic",
+                    subject_id=slug,
+                    related_ids=[str(p) for p in paper_ids],
+                    payload={"removed_count": removed, "requested_count": len(paper_ids)},
+                ),
+            )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return removed
 
 
 def backfill_topic_id_on_paper_tags(
@@ -696,8 +892,145 @@ def get_topic_by_id(conn: sqlite3.Connection, topic_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def delete_topic(conn: sqlite3.Connection, topic_id: int) -> bool:
+def delete_topic(conn: sqlite3.Connection, topic_id: int, *, actor: Actor = "user") -> bool:
     """Remove the topic row. topic_papers cascades; paper_tags.topic_id
     is SET NULL so the LLM-produced labels remain on each paper."""
-    cur = conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,))
+    row = conn.execute(
+        "SELECT slug, name FROM topics WHERE id = ?", (topic_id,)
+    ).fetchone()
+    if row is None:
+        return False
+    slug = row["slug"]
+    name = row["name"]
+
+    conn.execute("BEGIN")
+    try:
+        cur = conn.execute("DELETE FROM topics WHERE id = ?", (topic_id,))
+        EventLogger.emit(
+            conn,
+            Event(
+                actor=actor,
+                event_type="topic.deleted",
+                subject_type="topic",
+                subject_id=slug,
+                payload={"name_at_delete": name},
+            ),
+        )
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return cur.rowcount > 0
+
+
+# ---------- Navigator / embedding helpers ----------
+
+
+def list_paper_embeddings(conn: sqlite3.Connection) -> list[dict]:
+    """Return every non-deleted paper that has an embedding.
+
+    Each dict has keys: ``paper_id``, ``arxiv_id``, ``title``, ``embedding``
+    (embedding is a bytes blob).
+    """
+    rows = conn.execute(
+        """
+        SELECT p.id, p.arxiv_id, p.title, e.embedding
+        FROM paper_embeddings e
+        JOIN papers p ON p.id = e.paper_id
+        WHERE p.deleted_at IS NULL
+        """
+    ).fetchall()
+    return [
+        {
+            "paper_id": r[0],
+            "arxiv_id": r[1],
+            "title": r[2],
+            "embedding": r[3],
+        }
+        for r in rows
+    ]
+
+
+def upsert_arxiv_feed_embedding(
+    conn: sqlite3.Connection,
+    arxiv_id: str,
+    embedding: bytes,
+) -> None:
+    """Insert or replace an arXiv feed embedding."""
+    conn.execute(
+        "DELETE FROM arxiv_feed_embeddings WHERE arxiv_id = ?",
+        (arxiv_id,),
+    )
+    conn.execute(
+        "INSERT INTO arxiv_feed_embeddings(arxiv_id, embedding) VALUES (?, ?)",
+        (arxiv_id, embedding),
+    )
+
+
+def list_arxiv_feed_embeddings(
+    conn: sqlite3.Connection, limit: int | None = None
+) -> list[dict]:
+    """Return arXiv feed embeddings.  Each dict has ``arxiv_id`` and
+    ``embedding`` (bytes blob)."""
+    sql = "SELECT arxiv_id, embedding FROM arxiv_feed_embeddings"
+    params: tuple = ()
+    if limit:
+        sql += " LIMIT ?"
+        params = (limit,)
+    rows = conn.execute(sql, params).fetchall()
+    return [
+        {"arxiv_id": r[0], "embedding": r[1]}
+        for r in rows
+    ]
+
+
+def delete_old_arxiv_feed(conn: sqlite3.Connection, before_date: str) -> int:
+    """Delete arXiv feed rows older than *before_date* (ISO 8601).
+    Returns number of rows deleted."""
+    cur = conn.execute(
+        "DELETE FROM arxiv_feed_embeddings WHERE rowid IN ("
+        "  SELECT rowid FROM arxiv_feed_embeddings WHERE arxiv_id < ?"
+        ")",
+        (before_date,),
+    )
+    return cur.rowcount
+
+
+# ---------- Weekly digest ----------
+
+
+def list_digests(conn: sqlite3.Connection, limit: int = 8) -> list[dict]:
+    """Return the most recent weekly digests, newest first."""
+    rows = conn.execute(
+        """
+        SELECT id, week, week_start, content, user_note, created_at, updated_at
+        FROM weekly_digests
+        ORDER BY week DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [
+        {
+            "id": r[0],
+            "week": r[1],
+            "week_start": r[2],
+            "content": r[3],
+            "user_note": r[4],
+            "created_at": r[5],
+            "updated_at": r[6],
+        }
+        for r in rows
+    ]
+
+
+def update_digest_user_note(
+    conn: sqlite3.Connection, digest_id: int, user_note: str
+) -> bool:
+    """Update the user_note field of a digest. Returns True if found."""
+    cur = conn.execute(
+        "UPDATE weekly_digests SET user_note = ?, updated_at = datetime('now') WHERE id = ?",
+        (user_note, digest_id),
+    )
+    conn.commit()
     return cur.rowcount > 0

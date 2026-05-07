@@ -38,6 +38,7 @@ from typing import Any
 
 from paperprism_agent import repository, tagger
 from paperprism_agent.config import Config
+from paperprism_agent.events import Event, EventLogger
 from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
 
 log = logging.getLogger("paperprism.auto_tag_jobs")
@@ -321,6 +322,7 @@ async def _run_job(cfg: Config, job: AutoTagJob) -> None:
 
                 # Persist each paper's tags; aggregate counters.
                 written_papers = 0
+                auto_events: list[Event] = []
                 for pid, tags in result.per_paper.items():
                     written = await asyncio.to_thread(
                         repository.add_paper_tags,
@@ -329,12 +331,26 @@ async def _run_job(cfg: Config, job: AutoTagJob) -> None:
                         tag_names=tags,
                         source="llm",
                         topic_id=None,    # backfilled once the topic row exists
+                        actor="llm",
                     )
                     if written:
                         written_papers += 1
                     for t in tags:
                         job.tag_counter[t] += 1
+                        auto_events.append(
+                            Event(
+                                actor="llm",
+                                event_type="tag.auto_generated",
+                                subject_type="tag",
+                                subject_id=t,
+                                payload={"paper_id": pid, "model": job.model_label},
+                            )
+                        )
                     job.succeeded_paper_ids.add(pid)
+
+                # Batch-write audit trail for LLM-generated tags.
+                if auto_events:
+                    await asyncio.to_thread(EventLogger.emit_many, conn, auto_events)
 
                 for t in result.hint_tags:
                     # hint tags get a small seed weight so future batches see them

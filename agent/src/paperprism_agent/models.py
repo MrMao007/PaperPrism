@@ -64,3 +64,40 @@ class HealthResponse(BaseModel):
     version: str
     home: str
     vault: str
+
+
+class EventItem(BaseModel):
+    """One row from the Memory Ledger events table."""
+
+    id: int
+    ts: str
+    actor: str
+    event_type: str
+    subject_type: str
+    subject_id: str
+    related_ids: list[str] | None = None
+    payload: dict | None = None
+    schema_v: int
+
+
+class EventsListResponse(BaseModel):
+    items: list[EventItem]
+    next_cursor: int | None = None
+
+
+class TimelineResponse(BaseModel):
+    paper_id: int
+    arxiv_id: str | None = None
+    events: list[EventItem]
+
+
+class TrackEventBody(BaseModel):
+    """Request body for POST /api/events/track (L1 read-behaviour events)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    event_type: str
+    subject_type: str
+    subject_id: str
+    actor: str = "user"
+    payload: dict | None = None

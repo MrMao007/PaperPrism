@@ -33,11 +33,13 @@ from paperprism_agent.classifier import (
 from paperprism_agent import dimensions as dim_module
 from paperprism_agent import llm as llm_module
 from paperprism_agent import tagger as tagger_module
+from paperprism_agent.weekly_digest import maybe_generate_digest
 
 log = logging.getLogger("paperprism.worker")
 
 DEFAULT_POLL_INTERVAL = 5.0   # seconds between empty-queue polls
 IDLE_SLEEP_ON_ERROR = 10.0    # after an unexpected worker loop error
+DIGEST_CHECK_INTERVAL = 3600.0  # seconds between weekly-digest checks (1h)
 
 
 class Worker:
@@ -58,6 +60,7 @@ class Worker:
         self._llm_client: llm_module.LLMClient | None = None
         self._llm_error: str | None = None
         self._dimensions: dim_module.DimensionsConfig | None = None
+        self._last_digest_check: float = 0.0  # monotonic timestamp
 
     # ------------------------------------------------------------------ #
     # lifecycle
@@ -93,6 +96,8 @@ class Worker:
     async def _run(self) -> None:
         while not self._stop.is_set():
             try:
+                # Periodic weekly-digest check (independent of task queue).
+                await self._maybe_check_digest()
                 processed = await self._tick()
             except Exception:
                 log.exception("worker loop crashed; sleeping before retry")
@@ -100,6 +105,18 @@ class Worker:
                 continue
             if not processed:
                 await self._sleep(self._poll_interval)
+
+    async def _maybe_check_digest(self) -> None:
+        """Check once per hour whether a new weekly digest is due."""
+        import time
+        now = time.monotonic()
+        if now - self._last_digest_check < DIGEST_CHECK_INTERVAL:
+            return
+        self._last_digest_check = now
+        try:
+            await asyncio.to_thread(maybe_generate_digest, self._cfg, self._conn)
+        except Exception:
+            log.exception("weekly digest check failed (non-fatal)")
 
     async def _sleep(self, seconds: float) -> None:
         try:
@@ -239,9 +256,14 @@ class Worker:
         )
         pdf_path = Path(paper["pdf_path"]) if paper.get("pdf_path") else None
         head_text = ""
+        full_text = ""
         if pdf_path is not None:
             head = pdf.read_head(pdf_path, pages=1)
             head_text = head.text
+            # Read full PDF text for richer LLM context (summary etc.)
+            if head.n_pages > 1:
+                full = pdf.read_head(pdf_path, pages=head.n_pages)
+                full_text = full.text
 
         ctx = PaperContext(
             full_id=paper["full_id"],
@@ -252,6 +274,7 @@ class Worker:
             journal_ref=paper.get("venue"),   # raw hint stored by enrich
             comment=None,
             pdf_head_text=head_text,
+            pdf_full_text=full_text or None,
         )
 
         if not has_enough_context(ctx):

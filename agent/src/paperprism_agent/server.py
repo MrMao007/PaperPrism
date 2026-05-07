@@ -17,6 +17,7 @@ CORS:
 
 from __future__ import annotations
 
+import json as _json
 import logging
 import shutil
 from contextlib import asynccontextmanager
@@ -31,17 +32,32 @@ from paperprism_agent import __version__
 from paperprism_agent import db as db_module
 from paperprism_agent import auto_tag_jobs, repository, tasks
 from paperprism_agent.config import Config
+from paperprism_agent.events import Actor
 from paperprism_agent.ingest import handle_ingest, handle_upload
 from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
 from paperprism_agent.models import (
+    EventItem,
+    EventsListResponse,
     HealthResponse,
     IngestRequest,
     IngestResponse,
+    TimelineResponse,
+    TrackEventBody,
     UploadIngestResponse,
 )
+from paperprism_agent.navigator import map_data as navigator_map_data
+from paperprism_agent.weekly_digest import maybe_generate_digest
 from paperprism_agent.worker import Worker
 
 log = logging.getLogger("paperprism.server")
+
+
+def _actor_from_request(request: Request) -> Actor:
+    """Read the X-PaperPrism-Actor header; default to 'agent'."""
+    raw = (request.headers.get("X-PaperPrism-Actor") or "").strip().lower()
+    if raw in {"user", "agent", "llm", "system"}:
+        return raw  # type: ignore[return-value]
+    return "agent"
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -69,6 +85,12 @@ def create_app(cfg: Config) -> FastAPI:
         else:
             log.info("worker disabled via config; queue will not drain")
             app.state.worker = None
+
+        # Check if a weekly digest needs to be generated.
+        try:
+            maybe_generate_digest(cfg, conn)
+        except Exception:
+            log.exception("weekly digest generation failed (non-fatal)")
 
         try:
             yield
@@ -122,7 +144,8 @@ def create_app(cfg: Config) -> FastAPI:
     )
     def ingest(req: IngestRequest, request: Request) -> IngestResponse:
         cfg_local: Config = request.app.state.cfg
-        return handle_ingest(cfg_local, req)
+        actor = _actor_from_request(request)
+        return handle_ingest(cfg_local, req, actor=actor)
 
     @app.post(
         "/api/ingest/upload",
@@ -140,6 +163,7 @@ def create_app(cfg: Config) -> FastAPI:
         path, so we accept the raw bytes and dedupe by sha256.
         """
         cfg_local: Config = request.app.state.cfg
+        actor = _actor_from_request(request)
         try:
             data = await file.read()
         except Exception as exc:
@@ -150,6 +174,7 @@ def create_app(cfg: Config) -> FastAPI:
             file_bytes=data,
             filename=filename,
             source_hint=source_hint,
+            actor=actor,
         )
 
     @app.get("/")
@@ -266,11 +291,13 @@ def create_app(cfg: Config) -> FastAPI:
     )
     def delete_paper(
         paper_id: int,
+        request: Request,
         remove_files: bool = Query(True, description="Also remove the vault directory on disk"),
     ) -> dict:
         import shutil as _shutil
         from pathlib import Path as _Path
 
+        actor = _actor_from_request(request)
         conn = db_module.connect(cfg.paths.db_file)
         paper = repository.get_paper(conn, paper_id)
         if paper is None:
@@ -280,7 +307,7 @@ def create_app(cfg: Config) -> FastAPI:
         vault_dir = paper.get("vault_dir")
 
         # Delete DB rows first (classifications/tasks cascade via FK).
-        repository.delete_paper(conn, paper_id)
+        repository.delete_paper(conn, paper_id, actor=actor)
 
         files_removed = False
         if remove_files and vault_dir:
@@ -462,7 +489,7 @@ def create_app(cfg: Config) -> FastAPI:
         "/api/papers/{paper_id}/tags",
         dependencies=[Depends(require_token)],
     )
-    def edit_paper_tags_endpoint(paper_id: int, payload: dict) -> dict:
+    def edit_paper_tags_endpoint(paper_id: int, payload: dict, request: Request) -> dict:
         """Body: ``{"add": ["tag-a"], "remove": ["tag-b"]}``.
 
         Both arrays are optional. Tags are normalised (lowercase /
@@ -475,6 +502,7 @@ def create_app(cfg: Config) -> FastAPI:
         remove = payload.get("remove") or []
         if not isinstance(add, list) or not isinstance(remove, list):
             raise HTTPException(400, detail="'add' / 'remove' must be lists of strings")
+        actor = _actor_from_request(request)
         conn = db_module.connect(cfg.paths.db_file)
         paper = repository.get_paper(conn, paper_id)
         if paper is None:
@@ -482,11 +510,11 @@ def create_app(cfg: Config) -> FastAPI:
         added = 0
         if add:
             added = repository.add_paper_tags(
-                conn, paper_id=paper_id, tag_names=add, source="user", topic_id=None,
+                conn, paper_id=paper_id, tag_names=add, source="user", topic_id=None, actor=actor,
             )
         removed = 0
         for name in remove:
-            if repository.remove_paper_tag(conn, paper_id=paper_id, tag_name=str(name)):
+            if repository.remove_paper_tag(conn, paper_id=paper_id, tag_name=str(name), actor=actor):
                 removed += 1
         return {
             "paper_id": paper_id,
@@ -524,12 +552,150 @@ def create_app(cfg: Config) -> FastAPI:
         "/api/topics/{topic_id}",
         dependencies=[Depends(require_token)],
     )
-    def delete_topic_endpoint(topic_id: int) -> dict:
+    def delete_topic_endpoint(topic_id: int, request: Request) -> dict:
         conn = db_module.connect(cfg.paths.db_file)
-        ok = repository.delete_topic(conn, topic_id)
+        actor = _actor_from_request(request)
+        ok = repository.delete_topic(conn, topic_id, actor=actor)
         if not ok:
             raise HTTPException(status_code=404, detail=f"topic {topic_id} not found")
         return {"deleted": True, "topic_id": topic_id}
+
+    # ---------------- Memory Ledger (events) ----------------
+
+    @app.post("/api/events/track")
+    def track_event_route(
+        body: TrackEventBody,
+        request: Request,
+    ) -> dict[str, Any]:
+        """Append a single L1 read-behaviour event (e.g. paper.opened).
+
+        Unlike mutation events, this does not wrap a business write;
+        it is safe to call directly from server.py.
+        """
+        conn = db_module.connect(cfg.paths.db_file)
+        actor = _actor_from_request(request)
+        repository.track_event(
+            conn,
+            actor=actor,
+            event_type=body.event_type,
+            subject_type=body.subject_type,
+            subject_id=body.subject_id,
+            payload=body.payload,
+        )
+        return {"ok": True}
+
+    @app.get("/api/events")
+    def list_events(
+        subject_type: str | None = Query(None),
+        subject_id: str | None = Query(None),
+        event_type: str | None = Query(None),
+        actor: str | None = Query(None),
+        since: str | None = Query(None, description="ISO8601 timestamp, inclusive"),
+        limit: int = Query(50, ge=1, le=200),
+        cursor: int | None = Query(None, description="events.id offset for pagination"),
+    ) -> EventsListResponse:
+        """Query the Memory Ledger. Results are newest-first."""
+        conn = db_module.connect(cfg.paths.db_file)
+        where_parts: list[str] = []
+        params: list[object] = []
+
+        if subject_type:
+            where_parts.append("subject_type = ?")
+            params.append(subject_type)
+        if subject_id:
+            where_parts.append("subject_id = ?")
+            params.append(subject_id)
+        if event_type:
+            where_parts.append("event_type = ?")
+            params.append(event_type)
+        if actor:
+            where_parts.append("actor = ?")
+            params.append(actor)
+        if since:
+            where_parts.append("ts >= ?")
+            params.append(since)
+        if cursor is not None:
+            where_parts.append("id < ?")
+            params.append(cursor)
+
+        where_sql = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
+        rows = conn.execute(
+            f"""
+            SELECT id, ts, actor, event_type, subject_type, subject_id,
+                   related_ids, payload, schema_v
+            FROM events
+            {where_sql}
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            [*params, limit + 1],
+        ).fetchall()
+
+        items: list[EventItem] = []
+        for r in rows[:limit]:
+            payload = _json.loads(r["payload"]) if r["payload"] else None
+            related = _json.loads(r["related_ids"]) if r["related_ids"] else None
+            items.append(
+                EventItem(
+                    id=r["id"],
+                    ts=r["ts"],
+                    actor=r["actor"],
+                    event_type=r["event_type"],
+                    subject_type=r["subject_type"],
+                    subject_id=r["subject_id"],
+                    related_ids=related,
+                    payload=payload,
+                    schema_v=r["schema_v"],
+                )
+            )
+
+        next_cursor = rows[limit]["id"] if len(rows) > limit else None
+        return EventsListResponse(items=items, next_cursor=next_cursor)
+
+    @app.get("/api/papers/{paper_id}/timeline")
+    def get_paper_timeline(paper_id: int) -> TimelineResponse:
+        """Return every ledger event for a given paper, newest-first."""
+        conn = db_module.connect(cfg.paths.db_file)
+        paper = repository.get_paper(conn, paper_id)
+        if paper is None:
+            raise HTTPException(status_code=404, detail=f"paper {paper_id} not found")
+
+        arxiv_id = paper.get("arxiv_id")
+        rows = conn.execute(
+            """
+            SELECT id, ts, actor, event_type, subject_type, subject_id,
+                   related_ids, payload, schema_v
+            FROM events
+            WHERE subject_type = 'paper' AND subject_id = ?
+            ORDER BY id DESC
+            """,
+            (arxiv_id,),
+        ).fetchall()
+
+        events: list[EventItem] = []
+        for r in rows:
+            payload = _json.loads(r["payload"]) if r["payload"] else None
+            related = _json.loads(r["related_ids"]) if r["related_ids"] else None
+            events.append(
+                EventItem(
+                    id=r["id"],
+                    ts=r["ts"],
+                    actor=r["actor"],
+                    event_type=r["event_type"],
+                    subject_type=r["subject_type"],
+                    subject_id=r["subject_id"],
+                    related_ids=related,
+                    payload=payload,
+                    schema_v=r["schema_v"],
+                )
+            )
+
+        return TimelineResponse(
+            paper_id=paper_id,
+            arxiv_id=arxiv_id,
+            events=events,
+        )
 
     # ---------------- Auto-tag jobs ----------------
 
@@ -605,6 +771,35 @@ def create_app(cfg: Config) -> FastAPI:
         if job is None:
             raise HTTPException(status_code=404, detail=f"job {job_id} not found")
         return job.snapshot()
+
+    # ---------------- Navigator (map) ----------------
+
+    @app.get("/api/map")
+    def get_map() -> dict:
+        """Return the 2D embedding map for the user's library + arXiv feed."""
+        conn = db_module.connect(cfg.paths.db_file)
+        payload = navigator_map_data.build_map_data(conn)
+        return payload
+
+    # ---------------- Weekly Digest ----------------
+
+    @app.get("/api/weekly-digests")
+    def list_weekly_digests(limit: int = Query(8, ge=1, le=52)) -> list[dict]:
+        """Return the most recent weekly research digests."""
+        conn = db_module.connect(cfg.paths.db_file)
+        return repository.list_digests(conn, limit=limit)
+
+    @app.put("/api/weekly-digests/{digest_id}")
+    def update_weekly_digest(digest_id: int, body: dict) -> dict:
+        """Update the user_note field of a digest."""
+        user_note = body.get("user_note", "")
+        if not isinstance(user_note, str):
+            raise HTTPException(400, detail="user_note must be a string")
+        conn = db_module.connect(cfg.paths.db_file)
+        ok = repository.update_digest_user_note(conn, digest_id, user_note)
+        if not ok:
+            raise HTTPException(404, detail=f"digest {digest_id} not found")
+        return {"ok": True}
 
     return app
 

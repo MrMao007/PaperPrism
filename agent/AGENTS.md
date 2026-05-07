@@ -34,9 +34,11 @@ agent/
     ├── ingest.py                 # archive.completed pipeline (copy + enrich)
     ├── arxiv_client.py           # arxiv API client w/ caching
     ├── pdf.py                    # PyPDF text/abstract extraction + arxiv-id sniff
-    ├── dimensions.py             # LLM dimension taxonomy (topic/task/venue/methods)
-    ├── classifier.py             # LLM → dimension labels
+    ├── dimensions.py             # LLM dimension taxonomy (topic/task/venue/methods/summary)
+    ├── classifier.py             # LLM → dimension labels + TL;DR summary
+    │                             #   PaperContext includes pdf_head_text + pdf_full_text
     ├── tagger.py                 # LLM → per-paper tags + topic synthesis
+    ├── events.py                 # Memory Ledger L0: EventLogger + Event dataclass
     ├── auto_tag_jobs.py          # async in-process job store for /api/tags/auto
     ├── tasks.py                  # lightweight background task helpers
     ├── worker.py                 # ingest worker + per-paper auto-tag on ingest
@@ -67,12 +69,18 @@ Defined by migrations (append-only, applied on startup):
 - `0003_topics_top_tag_limit.sql` — adds `topics.top_tag_limit` column
   (**currently unused** — code returns all distinct tags; kept for
   backwards compat).
+- `0004_events.sql` — `events` (append-only ledger), `papers.deleted_at`
+  (soft-delete), 4 indexes on events. Bumps `schema_version` to 4.
 
 Key invariants the code assumes:
 
 - **Tag normalisation**: lowercase, ASCII only, words joined by `-`.
   Enforced in `repository.normalise_tag`. Never build tag names by
   string concatenation elsewhere.
+- **Memory Ledger.** Every mutating `repository.py` method emits ≥1
+  `events` row in the **same transaction** as the business write.
+  `events.py` owns the schema; `repository.py` is the only caller.
+  Event types are whitelisted (14 core types); payload capped at 16 KB.
 - **Topic deletion keeps tags.** `paper_tags.topic_id` is nullable and
   ON DELETE SET NULL, so removing a topic does not drop its papers'
   tags. (See `0002_tags_topics.sql`.)
@@ -81,6 +89,12 @@ Key invariants the code assumes:
   row accordingly.
 - **FTS5 mirror must be updated via triggers in `0001_init.sql`** — do
   not `INSERT INTO papers_fts` by hand.
+- **Dimension config override.** `~/.paperprism/dimensions.yaml` takes
+  precedence over the bundled `resources/dimensions.default.yaml`.
+  When adding a new dimension (e.g. `summary`), update **both** files;
+  otherwise the Agent will load the user's override which lacks the new
+  dimension, and the Agent process must be restarted for changes to
+  take effect.
 
 ## HTTP API surface (canonical list)
 
@@ -98,6 +112,8 @@ change.
   `DELETE /api/tags/auto/{id}`, `POST /api/tags/auto/{id}/retry`.
 - Topics: `GET /api/topics`, `GET /api/topics/{slug}`,
   `DELETE /api/topics/{topic_id}`.
+- Ledger: `GET /api/events` (filter + cursor pagination),
+  `GET /api/papers/{id}/timeline`.
 - LLM: `GET /api/llm/config`, `PUT /api/llm/config`, `POST /api/llm/test`.
 
 All mutating routes depend on `Depends(require_token)`; auth is a
@@ -123,6 +139,28 @@ pointed to by `api_key_env`. Supported providers:
 When adding a provider, register it in `llm.py` and
 `resources/llm.default.yaml`; the extension's `lib/providers.ts` must
 pick up the same name.
+
+### LLM dimensions & summary
+
+Dimensions are defined in `resources/dimensions.default.yaml` (or the
+user override `~/.paperprism/dimensions.yaml`). Each dimension has a
+`kind` (`label` or `text`), `source`, `max_chars`, and `prompt`.
+
+The `summary` dimension (kind: `text`) generates a TL;DR of each
+paper in 2–3 short sentences: **[Background] [Method] [Key Result]**.
+Limitations are only included if the paper explicitly states one. The
+prompt instructs the LLM not to fabricate limitations.
+
+`classifier.py` builds a single LLM call that covers all dimensions
+(including `summary`) in one pass. The input context (`PaperContext`)
+includes:
+
+- Paper metadata (title, abstract, authors)
+- `pdf_head_text` — first page of the PDF (always available)
+- `pdf_full_text` — full PDF text (truncated to `pdf_full_char_limit`,
+  default 8000 chars; configured in `llm.yaml`)
+
+Output is truncated per-dimension to the configured `max_chars`.
 
 ## Background work
 

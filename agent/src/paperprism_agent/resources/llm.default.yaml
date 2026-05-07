@@ -54,3 +54,4 @@ max_retries: 2                # per-call retry (transport + 5xx/429)
 # Keep it tight; a classifier doesn't need the whole paper.
 abstract_char_limit: 2000
 pdf_head_char_limit: 1500
+pdf_full_char_limit: 8000     # full PDF text for summary dimension
