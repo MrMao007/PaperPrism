@@ -47,6 +47,31 @@ for pkg in ('fastapi', 'starlette', 'pydantic'):
     except Exception:
         pass
 
+# Large ML/AI dependencies that are lazily loaded at runtime and must NOT
+# be frozen into the binary.  sentence-transformers downloads the embedding
+# model on first use (~130 MB); umap-learn / scipy are only needed when the
+# user opens the Atlas map.  Excluding them keeps the Linux binary well
+# below GitHub's 2 GB release-asset limit (without exclusions it balloons
+# to ~2.6 GB; with exclusions it is typically 200–400 MB).
+#
+# At runtime the binary resolves these packages from the user's Python
+# environment (installed automatically alongside the Agent via pip/uv).
+_HEAVY_EXCLUDES = [
+    # ML inference stack
+    'torch', 'torchvision', 'torchaudio',
+    'transformers', 'tokenizers', 'huggingface_hub',
+    'sentence_transformers',
+    # Scientific computing pulled in by umap-learn / sentence-transformers
+    'scipy', 'sklearn', 'scikit_learn',
+    'umap', 'umap_learn',
+    'numba', 'llvmlite',
+    # Other large optional deps unlikely to be needed at startup
+    'matplotlib', 'PIL', 'cv2',
+    'IPython', 'ipykernel', 'notebook',
+    # Standard exclusions
+    'tkinter', 'test', 'tests',
+]
+
 a = Analysis(
     [os.path.join(AGENT_PKG, '__main__.py')],
     pathex=[AGENT_SRC],
@@ -55,7 +80,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=['tkinter', 'test', 'tests'],
+    excludes=_HEAVY_EXCLUDES,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
