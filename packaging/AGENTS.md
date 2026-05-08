@@ -82,8 +82,8 @@ bash packaging/pyinstaller/build.sh
 # -> packaging/pyinstaller/dist/paperprism-agent
 
 # 2. macOS .pkg (requires macOS host)
-bash packaging/macos/build_pkg.sh 0.1.0
-# -> packaging/macos/dist/paperprism-agent-0.1.0-macos-arm64.pkg
+bash packaging/macos/build_pkg.sh 0.2.0
+# -> packaging/macos/dist/paperprism-agent-0.2.0-macos-arm64.pkg
 
 # 3. Smoke test the binary
 ./packaging/pyinstaller/dist/paperprism-agent version

@@ -16,7 +16,7 @@
 class PaperprismAgent < Formula
   desc "Local agent for PaperPrism: ingests arxiv PDFs into a hidden vault"
   homepage "https://github.com/paperprism/PaperPrism"
-  version "0.1.0"
+  version "0.2.0"
   license "MIT"
 
   on_macos do

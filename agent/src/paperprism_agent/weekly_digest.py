@@ -22,8 +22,9 @@ SYSTEM_PROMPT = """\
 周报应包含：
 1. 本周研究概览：主要关注了哪些方向
 2. 关键论文摘要：简要介绍本周新增或重点阅读的论文（提及论文标题和核心贡献）
-3. 研究节奏观察：阅读深度和广度的变化
-4. 方向洞察：是否有新的研究兴趣出现，或某些方向在持续深入
+3. 前沿雷达：本周 arXiv 推送了多少篇新论文，有多少被收入了个人库，体现对前沿的关注程度
+4. 研究节奏观察：阅读深度和广度的变化，LLM 分析了多少篇论文
+5. 方向洞察：是否有新的研究兴趣出现，或某些方向在持续深入
 
 语气：专业但亲切，像一位了解你研究背景的学长在写总结。不要只是罗列数据，要有洞察和叙事。
 
@@ -33,10 +34,16 @@ USER_PROMPT_TEMPLATE = """\
 以下是本周的研究活动数据：
 
 ## 本周活动统计
-- 新入库论文：{ingested_count} 篇
+- 新入库论文：{ingested_count} 篇（其中来自 arXiv 每日推荐：{feed_ingested_count} 篇）
 - 打开阅读：{opened_count} 篇
 - 深度阅读（≥30秒）：{read_sessions} 次
 - 预计阅读时长：{read_minutes} 分钟
+- LLM 分析完成：{classified_count} 篇
+
+## arXiv 每日推送
+- 本周推送天数：{feed_days} 天
+- 累计推送论文：{feed_total} 篇
+- 收入个人库：{feed_ingested_count} 篇
 
 ## 本周涉及的论文
 {papers_section}
@@ -64,25 +71,27 @@ def _current_week() -> tuple[str, str]:
 def _fetch_week_events(conn: sqlite3.Connection, week_start: str) -> dict:
     """Aggregate events for the week starting at week_start."""
     rows = conn.execute(
-        f"""
+        """
         SELECT event_type, COUNT(*) AS cnt
         FROM events
-        WHERE ts >= '{week_start}'
-          AND ts < date('{week_start}', '+7 days')
+        WHERE ts >= ?
+          AND ts < date(?, '+7 days')
         GROUP BY event_type
-        """
+        """,
+        (week_start, week_start),
     ).fetchall()
     counts = {r[0]: r[1] for r in rows}
 
     # Read session durations
     dur_rows = conn.execute(
-        f"""
+        """
         SELECT payload
         FROM events
         WHERE event_type = 'paper.read_session'
-          AND ts >= '{week_start}'
-          AND ts < date('{week_start}', '+7 days')
-        """
+          AND ts >= ?
+          AND ts < date(?, '+7 days')
+        """,
+        (week_start, week_start),
     ).fetchall()
     total_seconds = 0
     for r in dur_rows:
@@ -92,22 +101,46 @@ def _fetch_week_events(conn: sqlite3.Connection, week_start: str) -> dict:
         except (ValueError, TypeError):
             pass
 
+    # Feed stats: count distinct fetch days + total new papers pushed this week
+    feed_rows = conn.execute(
+        """
+        SELECT payload
+        FROM events
+        WHERE event_type = 'feed.fetched'
+          AND ts >= ?
+          AND ts < date(?, '+7 days')
+        """,
+        (week_start, week_start),
+    ).fetchall()
+    feed_days = len(feed_rows)
+    feed_total_new = 0
+    for r in feed_rows:
+        try:
+            payload = json.loads(r[0]) if r[0] else {}
+            feed_total_new += payload.get("new_papers", 0)
+        except (ValueError, TypeError):
+            pass
+
     return {
         "ingested": sum(counts.get(k, 0) for k in (
             "paper.ingested.downloaded",
             "paper.ingested.uploaded",
             "paper.ingested.bulk_imported",
         )),
+        "feed_ingested": counts.get("paper.ingested.from_feed", 0),
         "opened": counts.get("paper.opened", 0),
         "read_sessions": counts.get("paper.read_session", 0),
         "read_minutes": round(total_seconds / 60, 1),
+        "classified": counts.get("paper.classified", 0),
+        "feed_days": feed_days,
+        "feed_total": feed_total_new,
     }
 
 
 def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
     """Fetch papers that were ingested OR opened this week, with tags + summary/abstract."""
     rows = conn.execute(
-        f"""
+        """
         SELECT DISTINCT p.id, p.arxiv_id, p.title, p.abstract
         FROM papers p
         WHERE p.deleted_at IS NULL
@@ -116,14 +149,15 @@ def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
               SELECT CAST(subject_id AS INTEGER)
               FROM events
               WHERE event_type IN ('paper.ingested.downloaded','paper.ingested.uploaded','paper.ingested.bulk_imported','paper.opened')
-                AND ts >= '{week_start}'
-                AND ts < date('{week_start}', '+7 days')
+                AND ts >= ?
+                AND ts < date(?, '+7 days')
             )
-            OR p.ingested_at >= '{week_start}'
+            OR p.ingested_at >= ?
           )
         ORDER BY p.ingested_at DESC
         LIMIT 20
-        """
+        """,
+        (week_start, week_start, week_start),
     ).fetchall()
 
     if not rows:
@@ -134,13 +168,11 @@ def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
     # Fetch tags for these papers
     placeholders = ",".join("?" * len(paper_ids))
     tag_rows = conn.execute(
-        f"""
-        SELECT pt.paper_id, t.name
-        FROM paper_tags pt
-        JOIN tags t ON t.id = pt.tag_id
-        WHERE pt.paper_id IN ({placeholders})
-        ORDER BY t.name
-        """,
+        "SELECT pt.paper_id, t.name "
+        "FROM paper_tags pt "
+        "JOIN tags t ON t.id = pt.tag_id "
+        f"WHERE pt.paper_id IN ({placeholders}) "
+        "ORDER BY t.name",
         paper_ids,
     ).fetchall()
     tags_map: dict[int, list[str]] = {}
@@ -149,12 +181,9 @@ def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
 
     # Fetch LLM summaries for these papers
     summary_rows = conn.execute(
-        f"""
-        SELECT paper_id, value
-        FROM classifications
-        WHERE dim_name = 'summary'
-          AND paper_id IN ({placeholders})
-        """,
+        "SELECT paper_id, value "
+        "FROM classifications "
+        f"WHERE dim_name = 'summary' AND paper_id IN ({placeholders})",
         paper_ids,
     ).fetchall()
     summary_map: dict[int, str] = {}
@@ -241,9 +270,13 @@ def maybe_generate_digest(cfg: Config, conn: sqlite3.Connection) -> None:
 
     user_prompt = USER_PROMPT_TEMPLATE.format(
         ingested_count=events["ingested"],
+        feed_ingested_count=events["feed_ingested"],
         opened_count=events["opened"],
         read_sessions=events["read_sessions"],
         read_minutes=events["read_minutes"],
+        classified_count=events["classified"],
+        feed_days=events["feed_days"],
+        feed_total=events["feed_total"],
         papers_section=papers_section,
         prev_digest=prev_digest,
     )

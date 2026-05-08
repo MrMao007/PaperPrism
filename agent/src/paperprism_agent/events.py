@@ -12,9 +12,10 @@ from typing import Literal, Sequence
 log = logging.getLogger("paperprism.events")
 
 Actor = Literal["user", "agent", "llm", "system"]
-SubjectType = Literal["paper", "tag", "topic"]
+SubjectType = Literal["paper", "tag", "topic", "feed"]
 
 _VALID_EVENT_TYPES: set[str] = {
+    # ── paper lifecycle ──────────────────────────────────────────────────────
     "paper.ingested.downloaded",
     "paper.ingested.uploaded",
     "paper.ingested.bulk_imported",
@@ -22,16 +23,27 @@ _VALID_EVENT_TYPES: set[str] = {
     "paper.deleted",
     "paper.opened",
     "paper.read_session",
+    # paper.classified — emitted by the enrich worker after LLM classification.
+    # actor: llm  subject_type: paper  subject_id: arxiv_id
+    # payload: { model, has_summary, dimension_count }
+    "paper.classified",
+    # ── topic lifecycle ───────────────────────────────────────────────────────
     "topic.created",
     "topic.renamed",
     "topic.deleted",
     "topic.papers_added",
     "topic.papers_removed",
+    # ── tag lifecycle ─────────────────────────────────────────────────────────
     "tag.auto_generated",
     "tag.added_by_user",
     "tag.removed_by_user",
     "tag.added_by_llm",
     "tag.removed_by_llm",
+    # ── feed lifecycle ────────────────────────────────────────────────────────
+    # feed.fetched — emitted by refresh_feed() after daily RSS fetch completes.
+    # actor: system  subject_type: feed  subject_id: ISO date ("YYYY-MM-DD")
+    # payload: { categories, total_fetched, new_papers, filtered_library }
+    "feed.fetched",
 }
 
 _PAYLOAD_MAX_BYTES = 16 * 1024
@@ -71,7 +83,7 @@ class EventLogger:
             raise UnknownEventType(f"unknown event_type: {event.event_type!r}")
         if event.actor not in {"user", "agent", "llm", "system"}:
             raise ValueError(f"invalid actor: {event.actor!r}")
-        if event.subject_type not in {"paper", "tag", "topic"}:
+        if event.subject_type not in {"paper", "tag", "topic", "feed"}:
             raise ValueError(f"invalid subject_type: {event.subject_type!r}")
 
         ts = _now_iso()
@@ -109,7 +121,7 @@ class EventLogger:
                 raise UnknownEventType(f"unknown event_type: {event.event_type!r}")
             if event.actor not in {"user", "agent", "llm", "system"}:
                 raise ValueError(f"invalid actor: {event.actor!r}")
-            if event.subject_type not in {"paper", "tag", "topic"}:
+            if event.subject_type not in {"paper", "tag", "topic", "feed"}:
                 raise ValueError(f"invalid subject_type: {event.subject_type!r}")
 
             ts = _now_iso()

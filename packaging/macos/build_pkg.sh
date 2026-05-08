@@ -22,7 +22,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "${HERE}/../.." && pwd)"
 PYI_DIST="${PROJECT_ROOT}/packaging/pyinstaller/dist"
 
-VERSION="${1:-0.1.0}"
+VERSION="${1:-0.2.0}"
 IDENT="org.paperprism.agent"
 ARCH="$(uname -m)"
 

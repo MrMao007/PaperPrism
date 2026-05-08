@@ -57,6 +57,10 @@ Per-module AGENTS.md:
 - [extension/AGENTS.md](extension/AGENTS.md) — Chrome extension internals
 - [packaging/AGENTS.md](packaging/AGENTS.md) — distribution artifacts
 
+Cross-cutting guides:
+- [docs/testing.md](docs/testing.md) — how to run, write, and extend
+  tests (TDD discipline, pytest fixtures, future Vitest path)
+
 ## Ground rules for AI edits
 
 1. **Respect the process boundary.** Extension and Agent are two
@@ -114,7 +118,7 @@ npm run zip                     # → .output/paperprism-extension-<ver>-chrome.
 
 # Release packaging (fallback channels only)
 bash packaging/pyinstaller/build.sh
-bash packaging/macos/build_pkg.sh 0.1.0
+bash packaging/macos/build_pkg.sh 0.2.0
 
 # PyPI release (from agent/)
 cd agent
@@ -172,6 +176,12 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
   adding a new dimension, update **both** files and restart the Agent.
 - `tabs` permission has been removed from the extension manifest;
   use `window.open` instead of `chrome.tabs.create`.
+- **Embedding model is auto-downloaded on first use.** `navigator/embedding.py`
+  uses `BAAI/bge-small-en-v1.5` (~130 MB). If the model is absent from
+  `~/.cache/huggingface/hub/`, `_lazy_model()` catches the `OSError` from
+  `local_files_only=True` and re-downloads it automatically (one-time).
+  Subsequent starts are fully offline. Log line: `Embedding model … not
+  found locally — downloading (~130 MB, one-time) …`.
 - **JSX text nodes do NOT parse `\uXXXX` escapes.** A literal
   `<button>\u00d7</button>` renders the six characters `\u00d7` on
   screen. Either inline the actual Unicode character (`×`) or wrap it
@@ -180,6 +190,29 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
 - GitHub's `macos-13` Intel runner has been retired; `release.yml`
   only builds `macos-arm64`. Intel Mac users run via Rosetta 2 or
   install via `uv tool install paperprism-agent`.
+- **Extension source changes do NOT auto-reload the running extension.**
+  After editing any `.tsx` / `.ts` / `.css` under `extension/`, you
+  MUST: (1) `cd extension && npm run build`, then (2) go to
+  `chrome://extensions/` and click the **🔄 refresh** icon on the
+  PaperPrism card, then (3) reload any open Dashboard or Atlas tabs.
+  Skipping step (2)–(3) means the browser still executes the old
+  bundle — the classic symptom is "I changed the code but the bug is
+  still there". `npm run dev` (HMR) handles step (1) automatically
+  but you still need to reload dedicated-tab pages (Dashboard, Atlas)
+  manually after HMR injects updates.
+- **Shared UI components belong in `extension/lib/`, not in a
+  single entrypoint directory.** Components used by more than one
+  entrypoint (e.g. `lib/dialog.tsx` used by both `dashboard/` and
+  `map/`) must live in `lib/` because `entrypoints/` subdirectories
+  are separate bundle entry points and cannot import from each other
+  without duplication. Use the `@/lib/…` alias.
+- **Drawer / panel show-hide must use CSS class toggling, not
+  conditional JSX rendering.** Mounting/unmounting a panel node that
+  participates in a flex layout causes sibling elements (e.g. a canvas)
+  to immediately reflow — resulting in a visual flash or black frame.
+  Always render the container and switch `.hidden` / `.open` classes;
+  use `overflow: hidden` + `width` / `height` transition so the CSS
+  animation has a DOM node to run on.
 
 ## When in doubt
 

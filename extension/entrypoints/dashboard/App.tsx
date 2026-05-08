@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDialog } from '@/lib/dialog';
 import {
   deletePaper,
   editPaperTags,
   fetchDimensionValues,
+  fetchFeedStatus,
   fetchPapers,
   openPaperPdf,
   pingAgent,
@@ -144,6 +146,7 @@ const INITIAL_IMPORT_STATE: ImportState = {
 };
 
 function PapersPane() {
+  const { dialogNode, showAlert, showConfirm } = useDialog();
   const [items, setItems] = useState<PaperItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -165,6 +168,34 @@ function PapersPane() {
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [autoTagOpen, setAutoTagOpen] = useState(false);
+
+  // Feed-ready toast: show once per day when today's arXiv feed is available.
+  // Uses chrome.storage.local to persist "already shown today" across page reloads.
+  const [feedToast, setFeedToast] = useState<{ count: number } | null>(null);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const storageKey = 'feedPromptDate';
+
+    const checkAndMaybePrompt = async () => {
+      try {
+        // Only prompt if we haven't already shown it today
+        const stored = await chrome.storage.local.get(storageKey);
+        if (stored[storageKey] === today) return;
+
+        const status = await fetchFeedStatus();
+        if (!status.ready) return;
+
+        // Mark as shown for today before displaying, so a reload won't re-show
+        await chrome.storage.local.set({ [storageKey]: today });
+        setFeedToast({ count: status.count });
+      } catch {
+        // Agent offline or storage unavailable — silently skip
+      }
+    };
+
+    void checkAndMaybePrompt();
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -258,8 +289,11 @@ function PapersPane() {
 
   /* --- delete --- */
   const handleDelete = useCallback(async (paper: PaperItem) => {
-    const ok = window.confirm(
-      `Delete "${paper.title ?? paper.full_id}"?\n\nThis will remove the database row and the vault files. This action cannot be undone.`,
+    const ok = await showConfirm(
+      `Delete paper?`,
+      `"${paper.title ?? paper.full_id}"\n\nThis will remove the database row and the vault files. This action cannot be undone.`,
+      'Delete',
+      'danger',
     );
     if (!ok) return;
     setDeletingId(paper.id);
@@ -274,18 +308,18 @@ function PapersPane() {
         });
       }
     } catch (err) {
-      window.alert(`Delete failed: ${(err as Error).message}`);
+      await showAlert('Delete failed', (err as Error).message);
     } finally {
       setDeletingId(null);
     }
-  }, []);
+  }, [showConfirm, showAlert]);
 
   const handleOpenPdf = useCallback(async (paper: PaperItem) => {
     setPdfLoadingId(paper.id);
     try { await openPaperPdf(paper.id, paper.arxiv_id ?? paper.full_id); }
-    catch (err) { window.alert(`Open PDF failed: ${(err as Error).message}`); }
+    catch (err) { await showAlert('Open PDF failed', (err as Error).message); }
     finally { setPdfLoadingId(null); }
-  }, []);
+  }, [showAlert]);
 
   /* --- tag editor --- */
   const handleTagEdit = useCallback(
@@ -337,7 +371,7 @@ function PapersPane() {
   function onFolderPicked(e: React.ChangeEvent<HTMLInputElement>) {
     const all = Array.from(e.target.files ?? []);
     const pdfs = all.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
-    if (pdfs.length === 0) { window.alert('No PDF files found under the selected folder.'); return; }
+    if (pdfs.length === 0) { void showAlert('No PDF files found', 'The selected folder contains no PDF files.'); return; }
     runImport(pdfs);
   }
   function cancelImport() { importAbortRef.current?.abort(); }
@@ -353,6 +387,35 @@ function PapersPane() {
 
   return (
     <>
+      {dialogNode}
+
+      {feedToast && (
+        <div className="feed-toast" role="alert">
+          <div className="feed-toast-body">
+            <span className="feed-toast-icon">✦</span>
+            <div className="feed-toast-text">
+              <strong>Today&apos;s stars are ready</strong>
+              <span>{feedToast.count} new papers in the Atlas</span>
+            </div>
+            <button
+              type="button"
+              className="feed-toast-cta"
+              onClick={() => { window.location.href = chrome.runtime.getURL('map.html'); }}
+            >
+              Open Atlas
+            </button>
+            <button
+              type="button"
+              className="feed-toast-close"
+              aria-label="Dismiss"
+              onClick={() => setFeedToast(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="db-toolbar">
         <input
           className="db-search"

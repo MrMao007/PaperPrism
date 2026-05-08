@@ -1,12 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { marked } from 'marked';
 import {
   fetchWeeklyDigests,
   updateDigestNote,
   type WeeklyDigest,
 } from '@/lib/agent';
 
+// Configure marked: plain renderer, no GFM tables (keep it simple)
+marked.setOptions({ breaks: true });
+
+function renderMarkdown(text: string): string {
+  const result = marked.parse(text);
+  // marked.parse can return string | Promise<string>; the sync path always returns string
+  return typeof result === 'string' ? result : '';
+}
+
 export function WeeklySidebar() {
   const [digests, setDigests] = useState<WeeklyDigest[]>([]);
+  // Pre-render all digest content to HTML once digests load
+  const renderedContent = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const d of digests) {
+      map.set(d.id, renderMarkdown(d.content));
+    }
+    return map;
+  }, [digests]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -104,7 +122,10 @@ export function WeeklySidebar() {
 
               {isExpanded && (
                 <div className="wd-card-body" onClick={(e) => e.stopPropagation()}>
-                  <div className="wd-content">{d.content}</div>
+                  <div
+                    className="wd-content wd-content--md"
+                    dangerouslySetInnerHTML={{ __html: renderedContent.get(d.id) ?? '' }}
+                  />
 
                   <div className="wd-note-section">
                     <div className="wd-note-label">Personal notes</div>

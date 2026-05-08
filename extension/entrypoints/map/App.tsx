@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchMapData, fetchLlmConfig, saveLlmConfig, ingestFromFeed, type MapData } from '../../lib/agent';
 import { groupedCategories, type ArxivCategory } from '../../lib/arxivCategories';
+import { useDialog } from '../../lib/dialog';
 import CanvasMap from './CanvasMap';
 import PointDrawer from './PointDrawer';
 
 export default function MapApp() {
+  const { dialogNode, showAlert } = useDialog();
   const [data, setData] = useState<MapData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<{
@@ -120,7 +122,7 @@ export default function MapApp() {
     try {
       const result = await ingestFromFeed(arxivId);
       if (result.duplicate) {
-        alert('This paper is already in your library.');
+        await showAlert('Already in library', 'This paper is already in your library.');
       } else if (result.accepted) {
         // Refresh map data so the new paper appears as a library star
         try {
@@ -129,14 +131,14 @@ export default function MapApp() {
         } catch { /* ignore refresh failure */ }
         setSelected(null); // close drawer on success
       } else {
-        alert(result.message || 'Failed to add paper.');
+        await showAlert('Failed to add paper', result.message || 'An unknown error occurred.');
       }
     } catch (err) {
-      alert(`Failed to ingest: ${(err as Error).message}`);
+      await showAlert('Ingest failed', (err as Error).message);
     } finally {
       setIngesting(false);
     }
-  }, []);
+  }, [showAlert]);
 
   if (error) {
     return (
@@ -159,7 +161,9 @@ export default function MapApp() {
   const hasLibrary = data.library.length > 0;
 
   return (
-    <div className="map-container">
+    <>
+      {dialogNode}
+      <div className="map-container">
       <CanvasMap data={data} selectedId={selected?.arxivId ?? null} onSelectPoint={handleSelectPoint} />
 
       <div className="map-header">
@@ -229,5 +233,6 @@ export default function MapApp() {
         </div>
       )}
     </div>
+    </>
   );
 }

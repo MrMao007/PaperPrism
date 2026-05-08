@@ -800,6 +800,27 @@ def create_app(cfg: Config) -> FastAPI:
 
     # ---------------- Navigator (map) ----------------
 
+    @app.get("/api/feed/status")
+    def get_feed_status() -> dict:
+        """Return today's arXiv feed status.
+
+        Response:
+          date  -- ISO date string (e.g. '2026-05-08')
+          count -- number of feed papers available for today
+          ready -- true if count > 0 (feed has been fetched for today)
+        """
+        conn = db_module.connect(cfg.paths.db_file)
+        row = conn.execute(
+            "SELECT COUNT(*) FROM arxiv_feed_papers WHERE feed_date = date('now')"
+        ).fetchone()
+        count = row[0] if row else 0
+        import datetime
+        return {
+            "date": datetime.date.today().isoformat(),
+            "count": count,
+            "ready": count > 0,
+        }
+
     @app.get("/api/map")
     def get_map() -> dict:
         """Return the 2D embedding map for the user's library + arXiv feed."""

@@ -23,6 +23,7 @@ import sqlite3
 from pathlib import Path
 
 from paperprism_agent import arxiv_client, pdf, repository, tasks
+from paperprism_agent.events import Actor, Event, EventLogger
 from paperprism_agent.config import Config
 from paperprism_agent.classifier import (
     CLASSIFICATION_VERSION,
@@ -335,6 +336,25 @@ class Worker:
             "classified paper_id=%s rows=%d model=%s",
             paper_id, len(rows), model_label,
         )
+
+        # Emit paper.classified so the Memory Ledger tracks LLM coverage.
+        has_summary = any(r.get("dim_name") == "summary" for r in rows)
+        arxiv_id = paper.get("arxiv_id") or paper.get("full_id") or str(paper_id)
+        EventLogger.emit(
+            self._conn,
+            Event(
+                actor="llm",
+                event_type="paper.classified",
+                subject_type="paper",
+                subject_id=arxiv_id,
+                payload={
+                    "model": model_label,
+                    "has_summary": has_summary,
+                    "dimension_count": len(rows),
+                },
+            ),
+        )
+        self._conn.commit()
 
         # Queue a tag step if the user opted in (default: True). Kept
         # behind the same LLM config so the on/off switch lives next to

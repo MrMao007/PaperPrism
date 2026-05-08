@@ -18,9 +18,9 @@ from pathlib import Path
 from paperprism_agent.config import Config
 
 
-# Update when a new migration ships. 0005_embeddings.sql introduces
-# sqlite-vec virtual tables for paper and arXiv feed embeddings.
-EXPECTED_SCHEMA_VERSION = 6
+# Update when a new migration ships. 0007_arxiv_feed_papers.sql adds
+# the arxiv_feed_papers table backing the daily arXiv feed.
+EXPECTED_SCHEMA_VERSION = 7
 
 
 def test_tmp_home_isolation(tmp_home: Config, tmp_path: Path) -> None:

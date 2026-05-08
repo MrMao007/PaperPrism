@@ -72,6 +72,14 @@ That's it. Click the PaperPrism toolbar icon — the popup should show
 provider and paste an API key. Then download any arxiv PDF and
 PaperPrism will archive + classify + auto-tag it within seconds.
 
+> **First paper takes a little longer.** On the very first ingest the
+> Agent downloads the embedding model
+> ([BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5),
+> ~130 MB, one-time) from HuggingFace and caches it under
+> `~/.cache/huggingface/hub/`. You'll see a log line like
+> `Downloading embedding model … (~130 MB, one-time)`. Subsequent
+> starts load from the local cache with no network access.
+
 Prerequisite: [`uv`](https://docs.astral.sh/uv/) 0.4+
 (`curl -LsSf https://astral.sh/uv/install.sh | sh` on macOS / Linux).
 
@@ -98,7 +106,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install paperprism-agent
 
 # Verify
-paperprism-agent version        # -> 0.1.0
+paperprism-agent version        # -> 0.2.0
 
 # macOS: register a LaunchAgent so it auto-starts at login + auto-restarts
 paperprism-agent install
@@ -233,7 +241,7 @@ Health check from another shell:
 
 ```bash
 curl http://127.0.0.1:17321/api/health
-# {"ok":true,"version":"0.1.0",...}
+# {"ok":true,"version":"0.2.0",...}
 ```
 
 All state lives under `~/.paperprism/` (vault, SQLite DB, logs, secrets).
@@ -351,8 +359,8 @@ bash packaging/pyinstaller/build.sh
 # -> packaging/pyinstaller/dist/paperprism-agent
 
 # 2. (macOS only) wrap it in a .pkg
-bash packaging/macos/build_pkg.sh 0.1.0
-# -> packaging/macos/dist/paperprism-agent-0.1.0-macos-<arch>.pkg
+bash packaging/macos/build_pkg.sh 0.2.0
+# -> packaging/macos/dist/paperprism-agent-0.2.0-macos-<arch>.pkg
 ```
 
 The CI workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml)

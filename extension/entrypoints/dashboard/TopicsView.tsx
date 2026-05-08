@@ -8,9 +8,11 @@ import {
   type TopicDetail,
   type TopicSummary,
 } from '@/lib/agent';
+import { useDialog } from '@/lib/dialog';
 import { navigate } from './router';
 
 export function TopicsView() {
+  const { dialogNode, showAlert, showConfirm } = useDialog();
   const [topics, setTopics] = useState<TopicSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,17 +32,25 @@ export function TopicsView() {
   useEffect(() => { load(); }, [load]);
 
   const onDelete = useCallback(async (topic: TopicSummary) => {
-    if (!window.confirm(`Delete topic "${topic.name}"?\n\nPapers and their tags remain; only the topic aggregation is removed.`)) return;
+    const ok = await showConfirm(
+      `Delete topic?`,
+      `"${topic.name}"\n\nPapers and their tags remain; only the topic aggregation is removed.`,
+      'Delete',
+      'danger',
+    );
+    if (!ok) return;
     try {
       await deleteTopic(topic.id);
       setTopics((prev) => prev.filter((t) => t.id !== topic.id));
     } catch (err) {
-      window.alert(`Delete failed: ${(err as Error).message}`);
+      await showAlert('Delete failed', (err as Error).message);
     }
-  }, []);
+  }, [showConfirm, showAlert]);
 
   return (
-    <div className="db-topics-root">
+    <>
+      {dialogNode}
+      <div className="db-topics-root">
       <div className="db-topics-head">
         <h2>Topics</h2>
         <span className="db-topics-count">{topics.length} topic{topics.length === 1 ? '' : 's'}</span>
@@ -87,11 +97,13 @@ export function TopicsView() {
         ))}
       </div>
     </div>
+    </>
   );
 }
 
 
 export function TopicDetailView({ slug }: { slug: string }) {
+  const { dialogNode, showAlert } = useDialog();
   const [topic, setTopic] = useState<TopicDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,8 +125,8 @@ export function TopicDetailView({ slug }: { slug: string }) {
 
   const onOpenPdf = useCallback(async (paper: PaperItem) => {
     try { await openPaperPdf(paper.id, paper.arxiv_id ?? paper.full_id); }
-    catch (err) { window.alert(`Open PDF failed: ${(err as Error).message}`); }
-  }, []);
+    catch (err) { await showAlert('Open PDF failed', (err as Error).message); }
+  }, [showAlert]);
 
   if (loading) return <div className="db-empty">Loading…</div>;
   if (error || !topic) {
@@ -133,7 +145,9 @@ export function TopicDetailView({ slug }: { slug: string }) {
     : topic.papers;
 
   return (
-    <div className="db-topic-detail">
+    <>
+      {dialogNode}
+      <div className="db-topic-detail">
       <button type="button" className="db-link db-link-btn" onClick={() => navigate('#/topics')}>
         ← All topics
       </button>
@@ -195,5 +209,6 @@ export function TopicDetailView({ slug }: { slug: string }) {
         {papers.length === 0 && <div className="db-empty">No papers match the selected tag.</div>}
       </div>
     </div>
+    </>
   );
 }

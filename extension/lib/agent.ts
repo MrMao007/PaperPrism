@@ -710,6 +710,23 @@ export async function fetchMapData(): Promise<MapData> {
   return (await res.json()) as MapData;
 }
 
+// ---------- Feed status ----------
+
+export interface FeedStatus {
+  date: string;   // ISO date, e.g. '2026-05-08'
+  count: number;  // number of feed papers available today
+  ready: boolean; // true if count > 0
+}
+
+/** Check whether today's arXiv feed has been fetched and how many papers it contains. */
+export async function fetchFeedStatus(): Promise<FeedStatus> {
+  const res = await authedFetch('/api/feed/status', { method: 'GET' });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch feed status: ${res.status}`);
+  }
+  return (await res.json()) as FeedStatus;
+}
+
 /** Ingest a feed paper by arXiv ID (Atlas "Add to Library"). */
 export async function ingestFromFeed(arxivId: string): Promise<UploadIngestResponse> {
   const res = await authedFetch('/api/ingest/feed', {

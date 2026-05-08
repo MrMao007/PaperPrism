@@ -79,8 +79,37 @@ Key invariants the code assumes:
   string concatenation elsewhere.
 - **Memory Ledger.** Every mutating `repository.py` method emits ≥1
   `events` row in the **same transaction** as the business write.
-  `events.py` owns the schema; `repository.py` is the only caller.
-  Event types are whitelisted (14 core types); payload capped at 16 KB.
+  `events.py` owns the schema; callers are `repository.py`, `worker.py`
+  (for `paper.classified`), and `arxiv_feed.py` (for `feed.fetched`).
+  Event types are whitelisted in `_VALID_EVENT_TYPES`; payload capped at 16 KB.
+
+  **Full event catalogue** (20 types across 4 subject domains):
+
+  | event_type | actor | subject_type | emitted by | payload keys |
+  |---|---|---|---|---|
+  | `paper.ingested.downloaded` | user | paper | `ingest.py` | source_url, vault_path |
+  | `paper.ingested.uploaded` | user | paper | `ingest.py` | filename |
+  | `paper.ingested.bulk_imported` | user | paper | `ingest.py` | source_path |
+  | `paper.ingested.from_feed` | user/agent | paper | `ingest.py` | arxiv_id, source |
+  | `paper.deleted` | user | paper | `repository.py` | — |
+  | `paper.opened` | user | paper | extension → `/api/events/track` | source |
+  | `paper.read_session` | user | paper | extension → `/api/events/track` | duration_seconds |
+  | `paper.classified` | llm | paper | `worker.py::_run_classify` | model, has_summary, dimension_count |
+  | `topic.created` | user/agent | topic | `repository.py` | — |
+  | `topic.renamed` | user | topic | `repository.py` | old_name, new_name |
+  | `topic.deleted` | user | topic | `repository.py` | — |
+  | `topic.papers_added` | user/agent | topic | `repository.py` | paper_ids |
+  | `topic.papers_removed` | user | topic | `repository.py` | paper_ids |
+  | `tag.auto_generated` | llm | tag | `auto_tag_jobs.py` | model |
+  | `tag.added_by_user` | user | tag | `repository.py` | — |
+  | `tag.removed_by_user` | user | tag | `repository.py` | — |
+  | `tag.added_by_llm` | llm | tag | `auto_tag_jobs.py` | model |
+  | `tag.removed_by_llm` | llm | tag | `auto_tag_jobs.py` | — |
+  | `feed.fetched` | system | feed | `arxiv_feed.py::refresh_feed` | categories, total_fetched, new_papers, filtered_library |
+
+  `subject_type` valid values: `paper`, `tag`, `topic`, `feed`.
+  **Do not** add new event types without updating `_VALID_EVENT_TYPES` in `events.py`
+  **and** both validation sets inside `EventLogger.emit()` / `emit_many()`.
 - **Topic deletion keeps tags.** `paper_tags.topic_id` is nullable and
   ON DELETE SET NULL, so removing a topic does not drop its papers'
   tags. (See `0002_tags_topics.sql`.)
@@ -234,6 +263,19 @@ and update the GitHub Release body so fallback channels stay in sync.
 Also: `uv cache clean paperprism-agent` locally before smoke-testing
 to make sure `uvx` actually fetches the new version.
 
+## Navigator / Atlas subsystem
+
+Located at `navigator/`:
+
+| File | Responsibility |
+|---|---|
+| `embedding.py` | Lazy-loads `BAAI/bge-small-en-v1.5` (384-dim). **Auto-downloads** on first use if not in `~/.cache/huggingface/hub/` — catches `OSError` from `local_files_only=True` and retries with `local_files_only=False`. Provides `encode_batch()`, `embed_paper()`, `reindex_papers()`. |
+| `map_data.py` | Assembles `GET /api/map` payload. Contains a **process-local UMAP cache** keyed by `sha256(embedding_matrix)` — polling clients (5 s interval) get ~7 ms responses on cache hit vs ~400 ms on miss. Cache is single-entry; invalidated automatically when library/feed embeddings change. |
+| `projection.py` | Pure `fit_umap()` function — UMAP 384→2D with Procrustes alignment for map stability. Deterministic (`random_state=42`). |
+| `blind_spot.py` | `find_blind_spots()` — kNN density contrast to surface under-explored feed papers. |
+
+**Do not** add network calls inside `embedding.py` beyond the one-time HuggingFace model download.
+
 ## Conventions for AI edits
 
 - **Add a migration, don't mutate old ones.** Even a typo fix in a
@@ -247,5 +289,11 @@ to make sure `uvx` actually fetches the new version.
   `print()`.
 - **Paths**: always `cfg.paths.*` accessors; never hardcode
   `~/.paperprism/...`.
-- **Tests** (when added) belong at `agent/tests/` and should use a
-  temporary home dir via `AgentConfig.from_env(home=tmp_path)`.
+- **Tests** belong at `agent/tests/` and use the `tmp_home` + `db_conn`
+  fixtures from `conftest.py` (each test gets an isolated
+  `~/.paperprism` rooted at `tmp_path`). Run with
+  `python -m pytest tests/`. **For ledger / event work, every new
+  event_type or subject_type must come with a unit test** — see
+  `tests/test_events_feed.py` as the template. **For new
+  migrations**, bump `EXPECTED_SCHEMA_VERSION` in `tests/test_smoke.py`.
+  Full guide: [../docs/testing.md](../docs/testing.md).

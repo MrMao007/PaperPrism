@@ -15,15 +15,16 @@ html, body, #root {
 }
 
 .map-container {
-  display: flex;
+  /* No flex — canvas occupies the whole area; drawer floats above it. */
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 .map-canvas-wrap {
-  flex: 1;
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
 }
 
@@ -41,23 +42,42 @@ html, body, #root {
 /* ── Side Drawer — frosted glass panel ──────────────────────── */
 
 .map-drawer {
+  /* Floating overlay — never participates in canvas layout, so opening/closing
+     does NOT trigger the canvas ResizeObserver and never causes a black flash. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 360px;
-  min-width: 360px;
   background: rgba(12, 14, 28, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-left: 1px solid rgba(255, 217, 102, 0.1);
-  padding: 28px 24px;
   overflow-y: auto;
-  transition: transform 0.25s ease, width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+  z-index: 10;
+  transform: translateX(100%);             /* hidden off-screen by default */
+  transition: transform 0.25s ease;
+  pointer-events: none;                    /* don't block canvas while hidden */
 }
 
-.map-drawer.hidden {
-  transform: translateX(100%);
-  width: 0;
-  min-width: 0;
-  padding: 0;
-  border: none;
+.map-drawer--open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.map-drawer-inner {
+  width: 360px;
+  padding: 28px 24px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.map-drawer-kind {
+  font-size: 11px;
+  color: #6e9eff;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .map-drawer h2 {

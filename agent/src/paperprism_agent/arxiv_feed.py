@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 import httpx
 
 from paperprism_agent import repository as repo
+from paperprism_agent.events import Actor, Event, EventLogger
 from paperprism_agent.navigator.embedding import EMB_DIM, _build_embed_text, encode_batch
 
 log = logging.getLogger("paperprism.arxiv_feed")
@@ -200,6 +201,26 @@ def refresh_feed(conn: sqlite3.Connection, categories: list[str]) -> int:
 
     conn.commit()
     log.info("Stored %d feed papers for %s", len(new_papers), today)
+
+    # Emit feed.fetched event so the Memory Ledger can track daily feed coverage.
+    filtered_library_count = len(papers) - len(new_papers)
+    with conn:
+        EventLogger.emit(
+            conn,
+            Event(
+                actor="system",
+                event_type="feed.fetched",
+                subject_type="feed",
+                subject_id=today,
+                payload={
+                    "categories": categories,
+                    "total_fetched": len(papers),
+                    "new_papers": len(new_papers),
+                    "filtered_library": filtered_library_count,
+                },
+            ),
+        )
+
     return len(new_papers)
 
 
