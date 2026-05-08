@@ -144,6 +144,13 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
 - `pip install -e .` only links source. After **adding a new runtime
   dependency** to `pyproject.toml`, rerun `pip install -e .`, otherwise
   the Agent will crash with `ModuleNotFoundError` on next restart.
+- **Editable install ≠ live reload.** Source changes to `server.py`
+  (new routes, etc.) do NOT take effect until you `paperprism-agent
+  restart` (or kill + re-run `python -m paperprism_agent serve`). A
+  classic symptom: a freshly added route returns `404 {"detail":"Not
+  Found"}` even though `grep` shows it in `server.py`. Verify with
+  `curl http://127.0.0.1:17321/openapi.json` — if the path isn't in
+  there, the running process is stale.
 - Agent runs on port **17321**, not 8765. If already occupied (e.g. a
   launchd-managed instance), dev runs should use `--port 17322 --home
   /tmp/pp-dev-home` to avoid stomping on user state.
@@ -165,6 +172,11 @@ Health check: `curl http://127.0.0.1:17321/api/health`.
   adding a new dimension, update **both** files and restart the Agent.
 - `tabs` permission has been removed from the extension manifest;
   use `window.open` instead of `chrome.tabs.create`.
+- **JSX text nodes do NOT parse `\uXXXX` escapes.** A literal
+  `<button>\u00d7</button>` renders the six characters `\u00d7` on
+  screen. Either inline the actual Unicode character (`×`) or wrap it
+  in a JS expression: `<button>{'\u00d7'}</button>`. Same trap applies
+  to `\n`, `\t`, `\xNN` in JSX text positions.
 - GitHub's `macos-13` Intel runner has been retired; `release.yml`
   only builds `macos-arm64`. Intel Mac users run via Rosetta 2 or
   install via `uv tool install paperprism-agent`.

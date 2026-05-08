@@ -522,6 +522,17 @@ def _load_paper_ctxs(
         """,
         paper_ids,
     ).fetchall()
+    # Fetch LLM summaries
+    summary_rows = conn.execute(
+        f"""
+        SELECT paper_id, value
+        FROM classifications
+        WHERE dim_name = 'summary'
+          AND paper_id IN ({placeholders})
+        """,
+        paper_ids,
+    ).fetchall()
+    summary_map: dict[int, str] = {r[0]: r[1] for r in summary_rows}
     import json as _json
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -533,6 +544,7 @@ def _load_paper_ctxs(
                 "full_id": r["full_id"],
                 "title": r["title"],
                 "abstract": r["abstract"],
+                "summary": summary_map.get(r["id"], ""),
                 "arxiv_categories": cats,
             }
         )

@@ -59,6 +59,12 @@ class UploadIngestResponse(BaseModel):
     message: Optional[str] = None
 
 
+class IngestFeedRequest(BaseModel):
+    """Request body for POST /api/ingest/feed (Atlas 'Add to Library')."""
+
+    arxiv_id: str
+
+
 class HealthResponse(BaseModel):
     ok: bool = True
     version: str

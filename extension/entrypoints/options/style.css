@@ -217,3 +217,46 @@ a.opt-link:hover { text-decoration: underline; }
   .wiz-tag { background: #23262c; color: #9ca3af; }
   .wiz-tag.ok { background: #14532d; color: #bbf7d0; }
 }
+
+/* ---------------- tag chip input ---------------- */
+.opt-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.opt-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, monospace;
+  background: #eef2f7;
+  color: #475569;
+}
+.opt-tag-remove {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  color: #9ca3af;
+}
+.opt-tag-remove:hover { color: #991b1b; }
+.opt-tag-input {
+  padding: 4px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: ui-monospace, Menlo, monospace;
+  width: 120px;
+  outline: none;
+}
+.opt-tag-input:focus { border-color: #2563eb; }
+@media (prefers-color-scheme: dark) {
+  .opt-tag-chip { background: #23262c; color: #9ca3af; }
+  .opt-tag-input { background: #0f1115; color: #e6e6e6; border-color: #2a2d33; }
+}

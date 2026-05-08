@@ -33,7 +33,7 @@ from paperprism_agent import db as db_module
 from paperprism_agent import auto_tag_jobs, repository, tasks
 from paperprism_agent.config import Config
 from paperprism_agent.events import Actor
-from paperprism_agent.ingest import handle_ingest, handle_upload
+from paperprism_agent.ingest import handle_ingest, handle_ingest_feed, handle_upload
 from paperprism_agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMError
 from paperprism_agent.models import (
     EventItem,
@@ -41,6 +41,7 @@ from paperprism_agent.models import (
     HealthResponse,
     IngestRequest,
     IngestResponse,
+    IngestFeedRequest,
     TimelineResponse,
     TrackEventBody,
     UploadIngestResponse,
@@ -176,6 +177,22 @@ def create_app(cfg: Config) -> FastAPI:
             source_hint=source_hint,
             actor=actor,
         )
+
+    @app.post(
+        "/api/ingest/feed",
+        response_model=UploadIngestResponse,
+        dependencies=[Depends(require_token)],
+    )
+    def ingest_feed(request: Request, body: IngestFeedRequest) -> UploadIngestResponse:
+        """Ingest a feed paper by downloading its PDF from arXiv.
+
+        This is the Atlas "Add to Library" action.  The Agent downloads
+        the PDF, registers it in the vault, and emits a
+        ``paper.ingested.from_feed`` Ledger event.
+        """
+        cfg_local: Config = request.app.state.cfg
+        actor = _actor_from_request(request)
+        return handle_ingest_feed(cfg_local, arxiv_id=body.arxiv_id.strip(), actor=actor)
 
     @app.get("/")
     def root() -> dict:
@@ -375,6 +392,7 @@ def create_app(cfg: Config) -> FastAPI:
             "abstract_char_limit": int(raw.get("abstract_char_limit", 2000)),
             "pdf_head_char_limit": int(raw.get("pdf_head_char_limit", 1500)),
             "auto_tag_on_ingest": bool(raw.get("auto_tag_on_ingest", True)),
+            "feed_categories": raw.get("feed_categories") or [],
             "allowed_api_key_envs": sorted(secret_allowlist()),
             "path": str(path),
         }
@@ -413,6 +431,14 @@ def create_app(cfg: Config) -> FastAPI:
                 "pdf_head_char_limit": int(payload.get("pdf_head_char_limit", 1500)),
                 "auto_tag_on_ingest": bool(payload.get("auto_tag_on_ingest", True)),
             }
+
+            # feed_categories: optional list of arXiv categories for daily feed
+            fc = payload.get("feed_categories")
+            if fc is not None:
+                if isinstance(fc, list) and all(isinstance(x, str) for x in fc):
+                    doc["feed_categories"] = fc
+                else:
+                    raise HTTPException(400, detail="feed_categories must be a list of strings")
         except KeyError as exc:
             raise HTTPException(400, detail=f"missing field: {exc}")
         except (TypeError, ValueError) as exc:

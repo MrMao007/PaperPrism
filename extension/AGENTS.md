@@ -9,10 +9,13 @@
 The capture layer **and** the user-facing UI:
 
 1. intercepts arxiv downloads and notifies the local Agent,
-2. renders a popup, an Options page (+ first-run wizard), and an
+2. renders a popup, an Options page (+ first-run wizard), an
    in-browser Dashboard SPA with paper/tag/topic views, LLM TL;DR
       summaries, inline tag editing, three-way search, weekly digest
-      sidebar, and batch tools,
+      sidebar, and batch tools, plus an **Atlas** map view
+   (`entrypoints/map/`) that visualises the library + arXiv feed as a
+   2D star field with an "Add to Library" action wired to
+   `POST /api/ingest/feed`,
 3. speaks to the Agent exclusively through `lib/agent.ts`.
 
 ## Tech choices
@@ -184,3 +187,8 @@ fix the wording and resubmit; follow-up review is usually same-day.
   untouched.
 - MV3 service workers can be terminated mid-fetch. Always await the
   Agent response inside the event handler and handle 502/timeout.
+- **JSX text nodes do not parse `\uXXXX` escapes.** Writing
+  `<button>\u00d7</button>` ships the literal 6 characters to the
+  DOM; use the real character (`×`) or wrap as
+  `<button>{'\u00d7'}</button>`. Any escape inside `{...}` /
+  string-literal contexts is fine — only bare JSX text is the trap.

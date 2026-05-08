@@ -239,6 +239,19 @@ def find_paper_by_sha256(
     return dict(row) if row else None
 
 
+def find_paper_by_arxiv_id(
+    conn: sqlite3.Connection, arxiv_id: str
+) -> dict | None:
+    """Return the first non-deleted paper matching ``arxiv_id`` or None.
+    Used by the feed ingest endpoint to check for duplicates."""
+    if not arxiv_id:
+        return None
+    row = conn.execute(
+        "SELECT * FROM papers WHERE arxiv_id = ? LIMIT 1", (arxiv_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def delete_paper(conn: sqlite3.Connection, paper_id: int, *, actor: Actor = "user") -> bool:
     """Soft-delete a paper (set deleted_at). Returns True if a live row
     was actually tombstoned."""
@@ -258,6 +271,11 @@ def delete_paper(conn: sqlite3.Connection, paper_id: int, *, actor: Actor = "use
         conn.execute(
             "UPDATE papers SET deleted_at = ? WHERE id = ?",
             (now, paper_id),
+        )
+        # Clean up embedding so Map no longer shows this paper
+        conn.execute(
+            "DELETE FROM paper_embeddings WHERE paper_id = ?",
+            (paper_id,),
         )
         EventLogger.emit(
             conn,
@@ -951,6 +969,22 @@ def list_paper_embeddings(conn: sqlite3.Connection) -> list[dict]:
     ]
 
 
+def upsert_paper_embedding(
+    conn: sqlite3.Connection,
+    paper_id: int,
+    embedding: bytes,
+) -> None:
+    """Insert or replace a paper embedding in ``paper_embeddings``."""
+    conn.execute(
+        "DELETE FROM paper_embeddings WHERE paper_id = ?",
+        (paper_id,),
+    )
+    conn.execute(
+        "INSERT INTO paper_embeddings(paper_id, embedding) VALUES (?, ?)",
+        (paper_id, embedding),
+    )
+
+
 def upsert_arxiv_feed_embedding(
     conn: sqlite3.Connection,
     arxiv_id: str,
@@ -978,6 +1012,27 @@ def list_arxiv_feed_embeddings(
         sql += " LIMIT ?"
         params = (limit,)
     rows = conn.execute(sql, params).fetchall()
+    return [
+        {"arxiv_id": r[0], "embedding": r[1]}
+        for r in rows
+    ]
+
+
+def list_arxiv_feed_embeddings_by_ids(
+    conn: sqlite3.Connection, arxiv_ids: list[str]
+) -> list[dict]:
+    """Return feed embeddings for the given arxiv_ids.
+
+    Each dict has ``arxiv_id`` and ``embedding`` (bytes blob).
+    """
+    if not arxiv_ids:
+        return []
+    placeholders = ",".join("?" * len(arxiv_ids))
+    rows = conn.execute(
+        f"SELECT arxiv_id, embedding FROM arxiv_feed_embeddings "
+        f"WHERE arxiv_id IN ({placeholders})",
+        arxiv_ids,
+    ).fetchall()
     return [
         {"arxiv_id": r[0], "embedding": r[1]}
         for r in rows

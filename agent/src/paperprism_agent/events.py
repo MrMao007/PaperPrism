@@ -18,6 +18,7 @@ _VALID_EVENT_TYPES: set[str] = {
     "paper.ingested.downloaded",
     "paper.ingested.uploaded",
     "paper.ingested.bulk_imported",
+    "paper.ingested.from_feed",
     "paper.deleted",
     "paper.opened",
     "paper.read_session",

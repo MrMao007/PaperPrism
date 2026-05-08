@@ -105,7 +105,7 @@ def _fetch_week_events(conn: sqlite3.Connection, week_start: str) -> dict:
 
 
 def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
-    """Fetch papers that were ingested OR opened this week, with tags + abstract."""
+    """Fetch papers that were ingested OR opened this week, with tags + summary/abstract."""
     rows = conn.execute(
         f"""
         SELECT DISTINCT p.id, p.arxiv_id, p.title, p.abstract
@@ -147,16 +147,36 @@ def _fetch_week_papers(conn: sqlite3.Connection, week_start: str) -> list[dict]:
     for r in tag_rows:
         tags_map.setdefault(r[0], []).append(r[1])
 
+    # Fetch LLM summaries for these papers
+    summary_rows = conn.execute(
+        f"""
+        SELECT paper_id, value
+        FROM classifications
+        WHERE dim_name = 'summary'
+          AND paper_id IN ({placeholders})
+        """,
+        paper_ids,
+    ).fetchall()
+    summary_map: dict[int, str] = {}
+    for r in summary_rows:
+        summary_map[r[0]] = r[1]
+
     result = []
     for r in rows:
         tags = tags_map.get(r[0], [])
-        abstract = (r[3] or "")[:200]  # truncate to keep prompt short
+        # Prefer LLM-generated summary (TL;DR); fall back to raw abstract truncated
+        summary = summary_map.get(r[0], "")
+        if summary:
+            abstract = summary.strip()
+        else:
+            abstract = (r[3] or "")[:200]
         result.append({
             "id": r[0],
             "arxiv_id": r[1],
             "title": r[2] or "Untitled",
             "abstract": abstract,
             "tags": tags,
+            "_has_summary": bool(summary),
         })
     return result
 
@@ -203,7 +223,10 @@ def maybe_generate_digest(cfg: Config, conn: sqlite3.Connection) -> None:
         lines = []
         for p in papers:
             tag_str = f"[{', '.join(p['tags'])}]" if p["tags"] else ""
-            abs_str = p["abstract"] + ("..." if len(p["abstract"]) >= 200 else "")
+            abs_str = p['abstract']
+            # Only add ellipsis if we fell back to raw abstract truncation
+            if not p.get('_has_summary'):
+                abs_str = abs_str + ("..." if len(abs_str) >= 200 else "")
             lines.append(PAPER_LINE.format(
                 title=p["title"],
                 arxiv_id=p["arxiv_id"],

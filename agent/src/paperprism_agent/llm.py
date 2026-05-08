@@ -70,6 +70,7 @@ class LLMConfig:
     pdf_head_char_limit: int
     pdf_full_char_limit: int = 8000
     auto_tag_on_ingest: bool = True
+    feed_categories: list[str] | None = None  # arXiv categories for daily feed, e.g. ["cs.AI"]
 
     @classmethod
     def load(cls, path: Path) -> "LLMConfig":
@@ -93,6 +94,7 @@ class LLMConfig:
                 pdf_head_char_limit=int(raw.get("pdf_head_char_limit", 1500)),
                 pdf_full_char_limit=int(raw.get("pdf_full_char_limit", 8000)),
                 auto_tag_on_ingest=bool(raw.get("auto_tag_on_ingest", True)),
+                feed_categories=raw.get("feed_categories"),
             )
         except KeyError as exc:
             raise LLMConfigError(f"LLM config missing required key: {exc}") from exc

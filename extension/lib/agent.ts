@@ -355,6 +355,7 @@ export interface LlmConfig {
   abstract_char_limit: number;
   pdf_head_char_limit: number;
   auto_tag_on_ingest: boolean;
+  feed_categories: string[];
   allowed_api_key_envs: string[];
   path: string;
 }
@@ -375,6 +376,7 @@ export interface LlmConfigUpdate {
   abstract_char_limit?: number;
   pdf_head_char_limit?: number;
   auto_tag_on_ingest?: boolean;
+  feed_categories?: string[];
 }
 
 export interface LlmTestResult {
@@ -677,6 +679,7 @@ export interface FeedHit {
   x: number;
   y: number;
   title?: string;
+  abstract?: string;
   score?: number;
 }
 
@@ -685,6 +688,8 @@ export interface BlindSpot {
   arxiv_id: string;
   x: number;
   y: number;
+  title?: string;
+  abstract?: string;
   score?: number;
 }
 
@@ -703,6 +708,19 @@ export async function fetchMapData(): Promise<MapData> {
     throw new Error(`Failed to fetch map: ${res.status}`);
   }
   return (await res.json()) as MapData;
+}
+
+/** Ingest a feed paper by arXiv ID (Atlas "Add to Library"). */
+export async function ingestFromFeed(arxivId: string): Promise<UploadIngestResponse> {
+  const res = await authedFetch('/api/ingest/feed', {
+    method: 'POST',
+    body: JSON.stringify({ arxiv_id: arxivId }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to ingest feed paper: ${res.status} ${text}`);
+  }
+  return (await res.json()) as UploadIngestResponse;
 }
 
 // ---------- Weekly Digest ----------

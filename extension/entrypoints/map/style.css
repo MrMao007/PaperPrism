@@ -1,4 +1,4 @@
-/* PaperPrism Map — full-viewport Canvas layout */
+/* PaperPrism Atlas — Star Chart Theme */
 * {
   margin: 0;
   padding: 0;
@@ -10,7 +10,7 @@ html, body, #root {
   height: 100%;
   overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0a0a0f;
+  background: #03040a;
   color: #e0e0e0;
 }
 
@@ -31,16 +31,25 @@ html, body, #root {
   display: block;
   width: 100%;
   height: 100%;
+  cursor: grab;
 }
 
+.map-canvas-wrap canvas:active {
+  cursor: grabbing;
+}
+
+/* ── Side Drawer — frosted glass panel ──────────────────────── */
+
 .map-drawer {
-  width: 340px;
-  min-width: 340px;
-  background: #111118;
-  border-left: 1px solid #2a2a3a;
-  padding: 24px;
+  width: 360px;
+  min-width: 360px;
+  background: rgba(12, 14, 28, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 217, 102, 0.1);
+  padding: 28px 24px;
   overflow-y: auto;
-  transition: transform 0.2s ease;
+  transition: transform 0.25s ease, width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
 }
 
 .map-drawer.hidden {
@@ -55,19 +64,57 @@ html, body, #root {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 8px;
-  color: #fff;
+  color: #ffe8a0;
+  line-height: 1.4;
 }
 
 .map-drawer .arxiv-id {
   font-size: 12px;
-  color: #888;
+  color: #8eafd0;
   margin-bottom: 16px;
+}
+
+.map-drawer .arxiv-id a {
+  color: #8eafd0;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.map-drawer .arxiv-id a:hover {
+  color: #b8d8f0;
+  text-decoration: underline;
 }
 
 .map-drawer .abstract {
   font-size: 13px;
   line-height: 1.6;
   color: #bbb;
+  margin-top: 12px;
+}
+
+/* ── Ingest feed button ────────────────────────────────────── */
+
+.ingest-feed-btn {
+  margin-top: 16px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 217, 102, 0.25);
+  border-radius: 8px;
+  background: rgba(255, 217, 102, 0.12);
+  color: #ffe8a0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.ingest-feed-btn:hover {
+  background: rgba(255, 217, 102, 0.22);
+  border-color: rgba(255, 217, 102, 0.4);
+}
+.ingest-feed-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .map-drawer .close-btn {
@@ -75,8 +122,8 @@ html, body, #root {
   top: 12px;
   right: 12px;
   background: none;
-  border: 1px solid #333;
-  color: #888;
+  border: 1px solid rgba(255, 217, 102, 0.15);
+  color: #8eafd0;
   cursor: pointer;
   border-radius: 4px;
   width: 28px;
@@ -85,17 +132,21 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.15s;
 }
 
 .map-drawer .close-btn:hover {
-  background: #222;
-  color: #fff;
+  background: rgba(255, 217, 102, 0.08);
+  color: #ffe8a0;
+  border-color: rgba(255, 217, 102, 0.3);
 }
+
+/* ── Header ─────────────────────────────────────────────────── */
 
 .map-header {
   position: absolute;
   top: 16px;
-  left: 16px;
+  left: 20px;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -105,37 +156,46 @@ html, body, #root {
 .map-header h1 {
   font-size: 18px;
   font-weight: 600;
-  color: #fff;
+  color: #ffe8a0;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 20px rgba(255, 217, 102, 0.2);
 }
 
 .map-header a {
-  color: #6e9eff;
+  color: #8eafd0;
   font-size: 13px;
   text-decoration: none;
+  transition: color 0.15s;
 }
 
 .map-header a:hover {
+  color: #b8d8f0;
   text-decoration: underline;
 }
+
+/* ── Legend — star chart card ────────────────────────────────── */
 
 .map-legend {
   position: absolute;
   bottom: 16px;
-  left: 16px;
+  left: 20px;
   z-index: 10;
-  background: rgba(17, 17, 24, 0.85);
-  border: 1px solid #2a2a3a;
-  border-radius: 8px;
-  padding: 12px 16px;
+  background: rgba(12, 14, 28, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 217, 102, 0.08);
+  border-radius: 10px;
+  padding: 12px 18px;
   font-size: 12px;
   display: flex;
-  gap: 16px;
+  gap: 18px;
 }
 
 .map-legend .item {
   display: flex;
   align-items: center;
   gap: 6px;
+  color: #aab0c0;
 }
 
 .map-legend .dot {
@@ -145,10 +205,30 @@ html, body, #root {
   display: inline-block;
 }
 
-.map-legend .dot.library { background: #555; }
-.map-legend .dot.trajectory { background: #ff4444; }
-.map-legend .dot.feed { background: #ffcc00; }
-.map-legend .dot.blind-spot { background: #4488ff; }
+.map-legend .dot.library {
+  background: #ffd966;
+  box-shadow: 0 0 6px rgba(255, 179, 71, 0.5);
+}
+
+.map-legend .dot.trajectory {
+  background: #e8a44a;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  width: 8px;
+  height: 8px;
+}
+
+.map-legend .dot.feed {
+  background: #8eafd0;
+  opacity: 0.7;
+}
+
+.map-legend .dot.blind-spot {
+  background: #40e0d0;
+  box-shadow: 0 0 8px rgba(64, 224, 208, 0.4);
+}
+
+/* ── Loading / Error states ──────────────────────────────────── */
 
 .map-loading {
   display: flex;
@@ -157,5 +237,180 @@ html, body, #root {
   width: 100%;
   height: 100%;
   font-size: 16px;
-  color: #888;
+  color: #8eafd0;
+  background: radial-gradient(ellipse at center, #0d0f1a 0%, #03040a 100%);
+}
+
+.map-loading p {
+  text-shadow: 0 0 10px rgba(142, 175, 208, 0.3);
+}
+
+/* ── Info hints inside drawer ────────────────────────────────── */
+
+.map-drawer .hint-box {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.map-drawer .hint-box.nebula {
+  background: rgba(64, 224, 208, 0.08);
+  border: 1px solid rgba(64, 224, 208, 0.15);
+  color: #80eee0;
+}
+
+.map-drawer .hint-box.distant {
+  background: rgba(142, 175, 208, 0.08);
+  border: 1px solid rgba(142, 175, 208, 0.15);
+  color: #a8c8e0;
+}
+
+/* ── Settings button & panel ─────────────────────────────────── */
+
+.map-settings-btn {
+  background: none;
+  border: 1px solid rgba(255, 217, 102, 0.15);
+  color: #8eafd0;
+  font-size: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.map-settings-btn:hover,
+.map-settings-btn.active {
+  background: rgba(255, 217, 102, 0.08);
+  color: #ffe8a0;
+  border-color: rgba(255, 217, 102, 0.3);
+}
+
+.map-settings-panel {
+  position: absolute;
+  top: 56px;
+  left: 20px;
+  width: 380px;
+  max-height: calc(100% - 80px);
+  z-index: 20;
+  background: rgba(12, 14, 28, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 217, 102, 0.1);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-settings-header {
+  padding: 16px 20px 8px;
+}
+.map-settings-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffe8a0;
+  margin: 0 0 4px;
+}
+.map-settings-hint {
+  font-size: 11px;
+  color: #6b7fa0;
+}
+
+.map-settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 12px;
+}
+
+.map-settings-group {
+  margin-bottom: 12px;
+}
+.map-settings-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a6a80;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.map-settings-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.map-cat-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 6px 10px;
+  border: 1px solid rgba(142, 175, 208, 0.12);
+  border-radius: 6px;
+  background: rgba(142, 175, 208, 0.04);
+  cursor: pointer;
+  transition: all 0.12s;
+  min-width: 0;
+}
+.map-cat-btn:hover {
+  background: rgba(142, 175, 208, 0.1);
+  border-color: rgba(142, 175, 208, 0.25);
+}
+.map-cat-btn.selected {
+  background: rgba(255, 217, 102, 0.12);
+  border-color: rgba(255, 217, 102, 0.3);
+}
+
+.map-cat-label {
+  font-size: 12px;
+  color: #c8d8e8;
+  line-height: 1.3;
+}
+.map-cat-btn.selected .map-cat-label {
+  color: #ffe8a0;
+}
+.map-cat-id {
+  font-size: 10px;
+  color: #5a6a80;
+  font-family: ui-monospace, Menlo, monospace;
+  margin-top: 2px;
+}
+.map-cat-btn.selected .map-cat-id {
+  color: #b8a060;
+}
+
+.map-settings-footer {
+  padding: 10px 20px 14px;
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 217, 102, 0.08);
+}
+.map-cat-save {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 217, 102, 0.2);
+  color: #ffe8a0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.map-cat-save:hover { background: rgba(255, 217, 102, 0.3); }
+.map-cat-save:disabled { opacity: 0.5; cursor: default; }
+.map-cat-cancel {
+  padding: 6px 16px;
+  border: 1px solid rgba(142, 175, 208, 0.15);
+  border-radius: 6px;
+  background: none;
+  color: #8eafd0;
+  font-size: 12px;
+  cursor: pointer;
+}
+.map-cat-cancel:hover {
+  background: rgba(142, 175, 208, 0.08);
 }

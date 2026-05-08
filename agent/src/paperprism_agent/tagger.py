@@ -135,17 +135,20 @@ def build_batch_prompt(
     for ctx in paper_ctxs:
         pid = ctx["paper_id"]
         title = (ctx.get("title") or "").strip() or ctx.get("full_id") or f"paper {pid}"
+        # Prefer LLM summary (TL;DR) over raw abstract for prompt brevity
+        summary = (ctx.get("summary") or "").strip()
         abstract = (ctx.get("abstract") or "").strip()
-        if len(abstract) > ABSTRACT_SNIPPET_CHARS:
-            abstract = abstract[:ABSTRACT_SNIPPET_CHARS].rsplit(" ", 1)[0] + " [...]"
+        text = summary if summary else abstract
+        if len(text) > ABSTRACT_SNIPPET_CHARS:
+            text = text[:ABSTRACT_SNIPPET_CHARS].rsplit(" ", 1)[0] + " [...]"
         cats = ", ".join(ctx.get("arxiv_categories") or [])
         block = [f"### paper_id={pid}", f"Title: {title}"]
         if cats:
             block.append(f"arXiv categories: {cats}")
-        if abstract:
-            block.append(f"Abstract: {abstract}")
+        if text:
+            block.append(f"Summary: {text}")
         else:
-            block.append("Abstract: (unavailable)")
+            block.append("Summary: (unavailable)")
         lines.append("\n".join(block))
 
     lines.append(

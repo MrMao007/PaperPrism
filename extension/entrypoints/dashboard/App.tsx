@@ -42,8 +42,18 @@ export default function App() {
           <WeeklySidebar />
         </div>
       )}
-      {route.name === 'topics' && <TopicsView />}
-      {route.name === 'topic' && <TopicDetailView slug={route.slug} />}
+      {route.name === 'topics' && (
+        <div className="db-papers-layout">
+          <div className="db-papers-main"><TopicsView /></div>
+          <WeeklySidebar />
+        </div>
+      )}
+      {route.name === 'topic' && (
+        <div className="db-papers-layout">
+          <div className="db-papers-main"><TopicDetailView slug={route.slug} /></div>
+          <WeeklySidebar />
+        </div>
+      )}
     </div>
   );
 }
@@ -92,10 +102,8 @@ function Header({
         <a
           href={chrome.runtime.getURL('map.html')}
           className="db-nav-link"
-          target="_blank"
-          rel="noopener noreferrer"
         >
-          Map
+          Atlas
         </a>
       </nav>
       <button
@@ -145,7 +153,7 @@ function PapersPane() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   const [filterTag, setFilterTag] = useState('');
-  const [dimValues, setDimValues] = useState<DimensionValues>({});
+  const [, setDimValues] = useState<DimensionValues>({});
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<number | null>(null);
@@ -384,7 +392,7 @@ function PapersPane() {
             {selectedIds.size} paper{selectedIds.size === 1 ? '' : 's'} selected
           </span>
           <button type="button" className="db-import-btn" onClick={() => setAutoTagOpen(true)}>
-            Auto-tag selected
+            Create topic
           </button>
           <button type="button" className="db-import-close" onClick={clearSelection}>
             Clear selection

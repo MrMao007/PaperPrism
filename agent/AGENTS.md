@@ -102,7 +102,12 @@ Source of truth: `server.py`. Keep this table in sync whenever routes
 change.
 
 - Health / ingest: `GET /api/health`, `POST /api/ingest`,
-  `POST /api/ingest/upload`.
+  `POST /api/ingest/upload`,
+  `POST /api/ingest/feed` (Atlas "Add to Library" — body
+  `{arxiv_id}`; Agent downloads PDF from arxiv and runs the same
+  enrich pipeline as a normal ingest).
+- Atlas / Navigator map: `GET /api/map`, `GET /api/weekly-digests`,
+  `GET /api/weekly-digests/{id}`.
 - Papers: `GET/DELETE /api/papers`, `GET /api/papers/{id}`,
   `GET /api/papers/{id}/pdf`, `GET /api/papers/{id}/tags`,
   `POST /api/papers/{id}/tags` (body `{add:[], remove:[]}`).

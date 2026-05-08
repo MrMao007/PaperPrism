@@ -16,19 +16,44 @@ UMAP_RANDOM_STATE = 42
 
 def fit_umap(embs: np.ndarray, random_state: int = UMAP_RANDOM_STATE) -> np.ndarray:
     """Fit UMAP on (N, 384) embeddings and return (N, 2) coordinates."""
-    if embs.shape[0] < UMAP_NEIGHBORS + 1:
-        # Too few points for UMAP — fall back to PCA-like linear projection
-        log.warning(
-            "Only %d points (< n_neighbors=%d); UMAP may be unstable.",
-            embs.shape[0],
-            UMAP_NEIGHBORS,
+    n = embs.shape[0]
+    if n == 0:
+        return np.empty((0, 2), dtype=np.float64)
+    if n == 1:
+        return np.array([[0.0, 0.0]], dtype=np.float64)
+    if n == 2:
+        # UMAP needs at least 3 points; spread 2 points on a line
+        from scipy.spatial.distance import cosine
+        d = 1.0 - np.dot(embs[0], embs[1]) / (
+            np.linalg.norm(embs[0]) * np.linalg.norm(embs[1]) + 1e-10
         )
-    reducer = umap.UMAP(
-        n_neighbors=UMAP_NEIGHBORS,
-        min_dist=UMAP_MIN_DIST,
-        random_state=random_state,
-    )
-    return reducer.fit_transform(embs)
+        return np.array([[-d / 2, 0.0], [d / 2, 0.0]], dtype=np.float64)
+
+    n_neighbors = min(n - 1, UMAP_NEIGHBORS)
+    if n < 6:
+        # Too few points for UMAP to be meaningful; use PCA directly
+        log.warning(
+            "Only %d points; using PCA instead of UMAP.", n,
+        )
+        from sklearn.decomposition import PCA
+        return PCA(n_components=2, random_state=random_state).fit_transform(embs)
+
+    if n < UMAP_NEIGHBORS + 1:
+        log.warning(
+            "Only %d points; using n_neighbors=%d instead of %d.",
+            n, n_neighbors, UMAP_NEIGHBORS,
+        )
+    try:
+        reducer = umap.UMAP(
+            n_neighbors=n_neighbors,
+            min_dist=UMAP_MIN_DIST,
+            random_state=random_state,
+        )
+        return reducer.fit_transform(embs)
+    except Exception as exc:
+        log.warning("UMAP failed (%s); falling back to PCA.", exc)
+        from sklearn.decomposition import PCA
+        return PCA(n_components=2, random_state=random_state).fit_transform(embs)
 
 
 def align_to_anchor(anchor: np.ndarray, new: np.ndarray) -> np.ndarray:

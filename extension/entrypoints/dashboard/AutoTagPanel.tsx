@@ -110,8 +110,8 @@ export function AutoTagPanel({ paperIds, paperTitles, onClose, onDone }: Props) 
       <div className="db-import-panel db-tag-panel">
         <div className="db-import-head">
           <h2 className="db-import-title">
-            {phase === 'confirm' && `Auto-tag ${paperIds.length} paper${paperIds.length === 1 ? '' : 's'}`}
-            {phase === 'running' && 'Auto-tagging'}
+            {phase === 'confirm' && `Create topic from ${paperIds.length} paper${paperIds.length === 1 ? '' : 's'}`}
+            {phase === 'running' && 'Auto-tagging & creating topic'}
             {phase === 'done' && (snapshot?.status === 'done' ? 'Topic created' : 'Auto-tag finished')}
           </h2>
           {phase !== 'running' && (
@@ -169,7 +169,7 @@ function ConfirmView({
     <>
       <div className="db-tag-preview">
         <div className="db-tag-preview-title">
-          {paperIds.length} paper{paperIds.length === 1 ? '' : 's'} selected
+          {paperIds.length} paper{paperIds.length === 1 ? '' : 's'} selected — a topic will be created from shared tags
         </div>
         <ul className="db-tag-preview-list">
           {preview.map((pid) => (
@@ -190,7 +190,7 @@ function ConfirmView({
           Cancel
         </button>
         <button type="button" className="db-import-btn" onClick={onStart} disabled={busy || paperIds.length === 0}>
-          {busy ? 'Starting…' : 'Start auto-tagging'}
+          {busy ? 'Starting…' : 'Create topic'}
         </button>
       </div>
     </>

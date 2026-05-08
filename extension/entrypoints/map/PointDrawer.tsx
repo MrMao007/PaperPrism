@@ -1,18 +1,20 @@
-import React from 'react';
-
 interface PointDrawerProps {
-  info: { kind: string; arxivId: string; title?: string } | null;
+  info: { kind: string; arxivId: string; title?: string; abstract?: string } | null;
   onClose: () => void;
+  onIngest?: (arxivId: string) => void;
+  ingesting?: boolean;
 }
 
-export default function PointDrawer({ info, onClose }: PointDrawerProps) {
+export default function PointDrawer({ info, onClose, onIngest, ingesting }: PointDrawerProps) {
   if (!info) return <div className="map-drawer hidden" />;
 
   const kindLabel: Record<string, string> = {
-    library: 'Library Paper',
-    feed: 'arXiv Feed',
-    blind_spot: 'Blind Spot',
+    library: 'Your Star',
+    feed: 'Distant Star',
+    blind_spot: 'Nebula',
   };
+
+  const isIngestible = info.kind === 'feed' || info.kind === 'blind_spot';
 
   return (
     <div className="map-drawer" style={{ position: 'relative' }}>
@@ -37,15 +39,32 @@ export default function PointDrawer({ info, onClose }: PointDrawerProps) {
         </a>
       </div>
 
-      {info.kind === 'blind_spot' && (
-        <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(68,136,255,0.1)', borderRadius: 6, fontSize: 13 }}>
-          This paper sits in a knowledge gap near your reading activity.
+      {info.abstract && (
+        <div className="abstract">
+          {info.abstract}
         </div>
       )}
 
-      {info.kind === 'feed' && (
-        <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(255,204,0,0.1)', borderRadius: 6, fontSize: 13 }}>
-          This paper is from the recent arXiv feed and falls within your research area.
+      {isIngestible && (
+        <button
+          type="button"
+          className="ingest-feed-btn"
+          onClick={() => onIngest?.(info.arxivId)}
+          disabled={ingesting}
+        >
+          {ingesting ? 'Adding\u2026' : 'Add to Library'}
+        </button>
+      )}
+
+      {info.kind === 'blind_spot' && !info.abstract && (
+        <div className="hint-box nebula">
+          An unexplored region near your reading activity — a potential new direction.
+        </div>
+      )}
+
+      {info.kind === 'feed' && !info.abstract && (
+        <div className="hint-box distant">
+          A recent paper in your research area, visible but not yet collected.
         </div>
       )}
     </div>

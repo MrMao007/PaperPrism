@@ -551,3 +551,189 @@ def _resolve_arxiv_id(
 
     log.info("arxiv resolve: no verified id for filename=%s", filename)
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Feed ingest: add a feed paper to the library by downloading its PDF
+# --------------------------------------------------------------------------- #
+
+_FEED_PDF_TIMEOUT = 120.0
+_FEED_USER_AGENT = "PaperPrism-Agent (+https://github.com/paperprism; local)"
+
+
+def handle_ingest_feed(
+    cfg: Config,
+    *,
+    arxiv_id: str,
+    actor: Actor = "user",
+) -> UploadIngestResponse:
+    """Ingest a feed paper by downloading its PDF from arXiv.
+
+    Flow:
+      1. Check if the paper already exists in the library (return duplicate).
+      2. Download PDF from ``https://arxiv.org/pdf/<arxiv_id>``.
+      3. Save to vault, compute sha256.
+      4. ``upsert_paper`` + enqueue enrich + emit ``paper.ingested.from_feed``.
+    """
+    import httpx
+
+    conn = db_module.connect(cfg.paths.db_file)
+
+    # 1) duplicate check
+    existing = repository.find_paper_by_arxiv_id(conn, arxiv_id)
+    if existing is not None and existing["deleted_at"] is None:
+        return UploadIngestResponse(
+            accepted=True,
+            duplicate=True,
+            paperId=existing["id"],
+            fullId=existing.get("full_id"),
+            arxivId=arxiv_id,
+            vaultPath=existing.get("pdf_path"),
+            title=existing.get("title"),
+            status="duplicate",
+            message="Paper already in your library.",
+        )
+
+    # 2) download PDF from arXiv
+    pdf_url = f"https://arxiv.org/pdf/{arxiv_id}"
+    log.info("Downloading feed paper PDF: %s", pdf_url)
+    try:
+        with httpx.Client(
+            timeout=_FEED_PDF_TIMEOUT,
+            headers={"User-Agent": _FEED_USER_AGENT},
+            follow_redirects=True,
+        ) as client:
+            resp = client.get(pdf_url)
+            resp.raise_for_status()
+            pdf_bytes = resp.content
+    except httpx.HTTPError as exc:
+        log.error("Failed to download feed PDF %s: %s", pdf_url, exc)
+        return UploadIngestResponse(
+            accepted=False,
+            status="rejected",
+            message=f"Failed to download PDF from arXiv: {exc}",
+        )
+
+    if not pdf_bytes or len(pdf_bytes) < 100:
+        return UploadIngestResponse(
+            accepted=False,
+            status="rejected",
+            message="Downloaded PDF is empty or too small.",
+        )
+
+    # 3) save to vault
+    vault_root = cfg.paths.vault
+    vault_root.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now(timezone.utc)
+    safe_id = arxiv_id.replace("/", "_")
+    dest_dir = vault_root / f"{now.year:04d}" / f"{now.month:02d}" / safe_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_pdf = dest_dir / "paper.pdf"
+
+    _atomic_copy_from_bytes(pdf_bytes, dest_pdf)
+    sha = _sha256(dest_pdf)
+
+    # Write meta.json sidecar
+    full_id = arxiv_id
+    arxiv_id_plain = arxiv_id.split("v")[0] if "v" in arxiv_id else arxiv_id
+    version = arxiv_id[len(arxiv_id_plain):] or None
+    is_legacy = "/" in arxiv_id
+
+    meta = {
+        "schema_version": META_SCHEMA_VERSION,
+        "id": arxiv_id_plain,
+        "version": version,
+        "fullId": full_id,
+        "legacy": is_legacy,
+        "source_url": pdf_url,
+        "abs_url": f"https://arxiv.org/abs/{arxiv_id}",
+        "original_download_path": pdf_url,
+        "vault_path": str(dest_pdf),
+        "sha256": sha,
+        "size_bytes": dest_pdf.stat().st_size if dest_pdf.exists() else None,
+        "ingested_at": now.isoformat(),
+        "agent_version": __version__,
+        "copied": True,
+        "classification": None,
+        "imported": True,
+        "source": "feed",
+    }
+    (dest_dir / "meta.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    # 4) register in DB + enqueue enrich + emit event
+    try:
+        conn.execute("BEGIN")
+        try:
+            paper = repository.upsert_paper(
+                conn,
+                full_id=full_id,
+                arxiv_id=arxiv_id_plain,
+                version=version,
+                is_legacy=is_legacy,
+                pdf_path=str(dest_pdf),
+                vault_dir=str(dest_dir),
+                source_url=pdf_url,
+                abs_url=f"https://arxiv.org/abs/{arxiv_id}",
+                sha256=sha,
+                size_bytes=dest_pdf.stat().st_size if dest_pdf.exists() else None,
+            )
+            tasks.enqueue(conn, paper_id=paper.id, kind="enrich")
+            EventLogger.emit(
+                conn,
+                Event(
+                    actor=actor,
+                    event_type="paper.ingested.from_feed",
+                    subject_type="paper",
+                    subject_id=arxiv_id_plain,
+                    payload={
+                        "source_url": pdf_url,
+                        "filename": dest_pdf.name,
+                        "vault_path": str(dest_pdf),
+                        "sha256": sha,
+                    },
+                ),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+    except Exception:
+        log.exception("Failed to register feed paper in DB; file is still on disk")
+        return UploadIngestResponse(
+            accepted=False,
+            status="rejected",
+            message="Failed to register paper in database.",
+        )
+
+    log.info(
+        "Feed paper ingested paper_id=%s arxiv_id=%s dest=%s",
+        paper.id, arxiv_id, dest_pdf,
+    )
+    return UploadIngestResponse(
+        accepted=True,
+        duplicate=False,
+        paperId=paper.id,
+        fullId=full_id,
+        arxivId=arxiv_id,
+        vaultPath=str(dest_pdf),
+        title=None,
+        status="queued",
+        message="Downloaded from arXiv; queued for enrichment.",
+    )
+
+
+def _atomic_copy_from_bytes(data: bytes, dest: Path) -> None:
+    """Write bytes to a tmp file next to dest, then rename; crash-safe."""
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    try:
+        tmp.write_bytes(data)
+        tmp.replace(dest)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass

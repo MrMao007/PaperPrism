@@ -34,12 +34,14 @@ from paperprism_agent import dimensions as dim_module
 from paperprism_agent import llm as llm_module
 from paperprism_agent import tagger as tagger_module
 from paperprism_agent.weekly_digest import maybe_generate_digest
+from paperprism_agent import arxiv_feed
 
 log = logging.getLogger("paperprism.worker")
 
 DEFAULT_POLL_INTERVAL = 5.0   # seconds between empty-queue polls
 IDLE_SLEEP_ON_ERROR = 10.0    # after an unexpected worker loop error
 DIGEST_CHECK_INTERVAL = 3600.0  # seconds between weekly-digest checks (1h)
+FEED_CHECK_INTERVAL = 3600.0     # seconds between arXiv feed checks (1h)
 
 
 class Worker:
@@ -61,6 +63,7 @@ class Worker:
         self._llm_error: str | None = None
         self._dimensions: dim_module.DimensionsConfig | None = None
         self._last_digest_check: float = 0.0  # monotonic timestamp
+        self._last_feed_check: float = 0.0      # monotonic timestamp
 
     # ------------------------------------------------------------------ #
     # lifecycle
@@ -98,6 +101,8 @@ class Worker:
             try:
                 # Periodic weekly-digest check (independent of task queue).
                 await self._maybe_check_digest()
+                # Periodic arXiv feed refresh (independent of task queue).
+                await self._maybe_refresh_feed()
                 processed = await self._tick()
             except Exception:
                 log.exception("worker loop crashed; sleeping before retry")
@@ -117,6 +122,34 @@ class Worker:
             await asyncio.to_thread(maybe_generate_digest, self._cfg, self._conn)
         except Exception:
             log.exception("weekly digest check failed (non-fatal)")
+
+    async def _maybe_refresh_feed(self) -> None:
+        """Check once per hour whether today's arXiv feed needs refreshing."""
+        import time
+        now = time.monotonic()
+        if now - self._last_feed_check < FEED_CHECK_INTERVAL:
+            return
+        self._last_feed_check = now
+        try:
+            categories = self._get_feed_categories()
+            if not categories:
+                return
+            await asyncio.to_thread(
+                arxiv_feed.refresh_feed, self._conn, categories
+            )
+        except Exception:
+            log.exception("arXiv feed refresh failed (non-fatal)")
+
+    def _get_feed_categories(self) -> list[str]:
+        """Read feed_categories from llm.yaml; defaults to empty (disabled)."""
+        try:
+            llm_cfg = self._get_llm_config()
+        except Exception:
+            return []
+        cats = getattr(llm_cfg, "feed_categories", None)
+        if cats and isinstance(cats, list):
+            return [c for c in cats if isinstance(c, str) and c.strip()]
+        return []
 
     async def _sleep(self, seconds: float) -> None:
         try:
@@ -313,6 +346,14 @@ class Worker:
             llm_cfg = None
         if llm_cfg is None or getattr(llm_cfg, "auto_tag_on_ingest", True):
             tasks.enqueue(self._conn, paper_id=paper_id, kind="tag")
+            # tag 完成后会调用 embed_paper，此处不再重复
+        else:
+            # auto-tag 关闭，classify 是最后一步，在此生成 embedding
+            try:
+                from paperprism_agent.navigator import embedding as emb_mod
+                emb_mod.embed_paper(self._conn, paper_id)
+            except Exception as exc:
+                log.warning("embed after classify failed for paper_id=%s (non-fatal): %s", paper_id, exc)
 
     # ------------------------------------------------------------------ #
     # tag handler (single-paper auto-tag, driven by worker queue)
@@ -386,6 +427,13 @@ class Worker:
             "auto-tagged paper_id=%s tags=%s inserted=%d",
             paper_id, tags, inserted,
         )
+
+        # Re-embed: tags are now available → richer embedding
+        try:
+            from paperprism_agent.navigator import embedding as emb_mod
+            emb_mod.embed_paper(self._conn, paper_id)
+        except Exception as exc:
+            log.warning("re-embed after tag failed for paper_id=%s (non-fatal): %s", paper_id, exc)
 
     def _get_llm_client(self) -> llm_module.LLMClient:
         if self._llm_client is not None:

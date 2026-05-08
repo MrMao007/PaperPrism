@@ -50,7 +50,7 @@ export function TopicsView() {
       {loading && topics.length === 0 && <div className="db-empty">Loading…</div>}
       {!loading && topics.length === 0 && !error && (
         <div className="db-empty">
-          No topics yet. Select papers in the Papers view and use Auto-tag.
+          No topics yet. Select papers in the Papers view and click Create topic.
         </div>
       )}
 
@@ -177,11 +177,8 @@ export function TopicDetailView({ slug }: { slug: string }) {
                 PDF
               </button>
             </div>
-            <div className="db-topic-paper-meta">
-              {p.first_author ?? '—'}
-              {p.authors.length > 1 && <span className="db-et-al"> +{p.authors.length - 1}</span>}
-              {p.venue ? ` · ${p.venue}` : ''}
-              {p.published_at ? ` · ${new Date(p.published_at).toLocaleDateString('en-CA')}` : ''}
+            <div className="db-topic-paper-abstract">
+              {(p.classifications?.summary ?? []).join(' ') || (p.abstract ?? 'No abstract available.')}
             </div>
             <div className="db-topic-paper-tags">
               {p.tags.map((t) => (
