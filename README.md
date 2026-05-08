@@ -57,7 +57,7 @@ choice. No papers ever leave your machine.
   - 🚀 **Auto-start at login** — macOS LaunchAgent keeps the service
     running in the background; `paperprism-agent install` sets it up.
   <p align="center">
-  <img width="1183" height="747" alt="70312B11-77D9-4BF1-9FA5-A3E14D9C31AD" src="https://github.com/user-attachments/assets/b4d29c49-08d6-4e7e-bdd2-03548dbbef31" />
+  <img width="1706" height="873" alt="05F63CC5-FE28-499B-926C-4949E35DC65C" src="https://github.com/user-attachments/assets/1b0ebc58-6131-4a52-851a-4f67a2e4af80" />
   </p>
 - **Tags & Topics** — a lightweight knowledge-graph layer built on top of
   your paper library that turns a flat list of PDFs into a structured,
@@ -72,7 +72,7 @@ choice. No papers ever leave your machine.
   - 💾 **All local** — tags and topics live in the same SQLite database
     as papers; no external service, no account required.
   <p align="center">
-  <img width="400" height="365" alt="FDF3F1E1-0B56-4595-A73F-C2BDA709C97D" src="https://github.com/user-attachments/assets/abda39eb-018f-40c9-94a8-27c972dc93d8" />
+  <img width="1706" height="757" alt="BDF6E889-0EAA-4864-8B94-AB74F2CDCF17" src="https://github.com/user-attachments/assets/24ae9b81-62f0-4f98-9bb8-fdd9cc749aa4" />
   </p>
 - **Atlas** — an interactive 2D semantic map of your entire library.
   Every paper is encoded into a 384-dim embedding
@@ -94,6 +94,9 @@ choice. No papers ever leave your machine.
   link. Use the ⚙️ settings panel to choose which arXiv categories feed the
   Distant Stars layer. The UMAP projection is cached server-side so repeated
   polls are near-instant.
+  <p align="center">
+  <img width="1722" height="881" alt="4C02CC19-9965-473A-BBA8-B0B7A87A3C05" src="https://github.com/user-attachments/assets/99940c52-ddf9-4ad6-8817-b680fb20b217" />
+  </p>
 
 ## Quick start (2 steps)
 
