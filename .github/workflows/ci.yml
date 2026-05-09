@@ -115,7 +115,7 @@ jobs:
         run: npm ci
 
       - name: Prepare WXT types
-        run: npx wxt prepare
+        run: ./node_modules/.bin/wxt prepare
 
       - name: Type check (tsc --noEmit)
         run: npm run compile
