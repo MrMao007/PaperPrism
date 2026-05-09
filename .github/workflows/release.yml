@@ -195,9 +195,14 @@ jobs:
 
             ### Chrome extension
             Install from the
-            [Chrome Web Store](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
-            — or load the latest `paperprism-extension-<ver>-chrome.zip`
-            from this release unpacked via `chrome://extensions`.
+            [Chrome Web Store](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif).
+            The extension is published separately to the Chrome Web Store and does not ship as a release asset here.
+
+            ### Upgrade
+            ```
+            uv tool upgrade paperprism-agent
+            paperprism-agent restart
+            ```
   # Note: PyPI publish is a manual step.
   # Run `python -m build && twine upload dist/*` from `agent/` after tagging
   # (see agent/AGENTS.md → "Publishing to PyPI").
