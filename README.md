@@ -40,7 +40,7 @@ choice. No papers ever leave your machine.
     LLM provider and pasting an API key; one-click **Settings** entry
     from the Dashboard at any time.
   <p align="center">
-  <img width="352" height="270" alt="A31A2FD0" src="https://github.com/user-attachments/assets/3652f80f-59f8-474c-af97-da809f2a4cf2" />
+  <img width="344" height="170" alt="6851B0EF-696D-4B07-BFC4-B343B72C12C3" src="https://github.com/user-attachments/assets/c6cf3929-06e4-48cd-be2e-9df1fb8f4ec5" />
   </p>
 - **Local Agent** — a lightweight FastAPI service (`http://127.0.0.1:17321`)
   that runs entirely on your machine and owns the full data pipeline from
@@ -62,7 +62,7 @@ choice. No papers ever leave your machine.
     system service (macOS LaunchAgent / Linux systemd / Windows Task
     Scheduler) that keeps the Agent running across logins and restarts on crash.
   <p align="center">
-  <img width="1706" height="873" alt="05F63CC5-FE28-499B-926C-4949E35DC65C" src="https://github.com/user-attachments/assets/1b0ebc58-6131-4a52-851a-4f67a2e4af80" />
+  <img width="1728" height="959" alt="5134446E-64C5-43BA-B1B3-E069EE994F1F" src="https://github.com/user-attachments/assets/285fbcc3-1e9e-407d-8350-8184ba62e7eb" />
   </p>
 - **Tags & Topics** — a lightweight knowledge-graph layer built on top of
   your paper library that turns a flat list of PDFs into a structured,
@@ -77,7 +77,7 @@ choice. No papers ever leave your machine.
   - 💾 **All local** — tags and topics live in the same SQLite database
     as papers; no external service, no account required.
   <p align="center">
-  <img width="1706" height="757" alt="BDF6E889-0EAA-4864-8B94-AB74F2CDCF17" src="https://github.com/user-attachments/assets/24ae9b81-62f0-4f98-9bb8-fdd9cc749aa4" />
+  <img width="1728" height="959" alt="7931BD61-E996-46B3-8C26-00D7BAC5D687" src="https://github.com/user-attachments/assets/c3681265-979a-4c95-b0db-211b51ea93e6" />
   </p>
 - **Atlas** — an interactive 2D semantic map of your entire library.
   Every paper is encoded into a 384-dim embedding
@@ -100,7 +100,7 @@ choice. No papers ever leave your machine.
   Distant Stars layer. The UMAP projection is cached server-side so repeated
   polls are near-instant.
   <p align="center">
-  <img width="1722" height="881" alt="4C02CC19-9965-473A-BBA8-B0B7A87A3C05" src="https://github.com/user-attachments/assets/99940c52-ddf9-4ad6-8817-b680fb20b217" />
+  <img width="1728" height="959" alt="550E4506-27C1-43EF-99AC-8835DFC6696B" src="https://github.com/user-attachments/assets/511c219d-4777-4305-8190-43d3ba8f7d3c" />
   </p>
 
 ## Quick start (2 steps)
