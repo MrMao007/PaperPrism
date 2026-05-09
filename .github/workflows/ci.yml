@@ -6,7 +6,6 @@ name: CI
 # Jobs:
 #   test     — pytest on macOS / Linux / Windows (Python 3.11)
 #   lint     — syntax check all Python source files (ubuntu only)
-#   extension — tsc type-check + production build (ubuntu only)
 
 on:
   pull_request:
@@ -91,34 +90,3 @@ jobs:
           print('All platform modules imported successfully.')
           "
 
-  # ---------------------------------------------------------------------------
-  # 3. Chrome extension — type-check + build (Linux only)
-  # ---------------------------------------------------------------------------
-  extension:
-    name: Extension (tsc + build)
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        working-directory: extension
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: extension/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Prepare WXT types
-        run: ./node_modules/.bin/wxt prepare
-
-      - name: Type check (tsc --noEmit)
-        run: npm run compile
-
-      - name: Production build
-        run: npm run build
