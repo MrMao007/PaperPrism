@@ -27,7 +27,7 @@
   - 📂 **批量导入** — 选择一个现有 PDF 文件夹；每个文件的处理进度由 Agent 实时推送。
   - ⚙️ **首次运行向导** — Options 页面引导你选择 LLM 提供商并填入 API Key；Dashboard 中随时可一键进入**设置**。
   <p align="center">
-  <img width="352" height="270" alt="A31A2FD0" src="https://github.com/user-attachments/assets/3652f80f-59f8-474c-af97-da809f2a4cf2" />
+  <img width="344" height="170" alt="6851B0EF-696D-4B07-BFC4-B343B72C12C3" src="https://github.com/user-attachments/assets/c6cf3929-06e4-48cd-be2e-9df1fb8f4ec5" />
   </p>
 - **本地 Agent** — 完全运行在你机器上的轻量 FastAPI 服务（`http://127.0.0.1:17321`），负责从原始 PDF 到结构化、LLM 富化、可检索记录的完整数据流水线：
   - 🗄️ **SQLite + FTS5** — 所有论文、标签、事件和话题均本地存储，无云端数据库，无同步服务。
@@ -38,7 +38,7 @@
   - 📄 **PDF 全文送入 LLM** — 提取正文喂给大模型，分类质量远超仅凭标题和摘要。
   - 🚀 **登录自启动** — macOS LaunchAgent 让服务常驻后台；`paperprism-agent install` 一键配置。
   <p align="center">
-  <img width="1183" height="747" alt="70312B11-77D9-4BF1-9FA5-A3E14D9C31AD" src="https://github.com/user-attachments/assets/b4d29c49-08d6-4e7e-bdd2-03548dbbef31" />
+  <img width="1728" height="959" alt="5134446E-64C5-43BA-B1B3-E069EE994F1F" src="https://github.com/user-attachments/assets/285fbcc3-1e9e-407d-8350-8184ba62e7eb" />
   </p>
 - **标签与话题** — 构建在文献库之上的轻量知识图谱层，将一堆 PDF 变成结构化、可浏览的研究地图：
   - 🏷️ **自动标签** — 每次入库时 LLM 生成 2–5 个简短标签，立即出现在 Dashboard，无需用户操作。
@@ -46,7 +46,7 @@
   - 🗂️ **话题卡片** — 选中任意一批论文，合成为一个命名话题，包含一句话摘要和所有论文的并集标签；非常适合跨多篇论文追踪某条研究脉络。
   - 💾 **完全本地** — 标签和话题与论文存储在同一个 SQLite 数据库中，不依赖任何外部服务。
   <p align="center">
-  <img width="400" height="365" alt="FDF3F1E1-0B56-4595-A73F-C2BDA709C97D" src="https://github.com/user-attachments/assets/abda39eb-018f-40c9-94a8-27c972dc93d8" />
+  <img width="1728" height="959" alt="7931BD61-E996-46B3-8C26-00D7BAC5D687" src="https://github.com/user-attachments/assets/c3681265-979a-4c95-b0db-211b51ea93e6" />
   </p>
 - **Atlas（星图）** — 整个文献库的交互式二维语义地图。每篇论文被编码为 384 维 embedding（`BAAI/bge-small-en-v1.5`，约 130 MB，首次使用时自动下载），再通过 UMAP 投影到二维平面。画布包含四个图层：
   - ⭐ **你的星辰** — 已归档的论文按语义相似度分布，聚类模式一眼揭示你的研究版图。
@@ -55,6 +55,9 @@
   - 🟣 **星云** — 最多 5 篇盲点推荐：处于你文献库活跃区域周边稀疏位置的推送论文，帮你发现尚未探索的相邻领域。
 
   点击任意点，侧边抽屉将展示标题、摘要和直达链接。使用 ⚙️ 设置面板选择哪些 arXiv 分类为「远方星辰」图层提供数据。UMAP 投影结果在服务端缓存，重复轮询几乎即时响应。
+  <p align="center">
+  <img width="1728" height="959" alt="550E4506-27C1-43EF-99AC-8835DFC6696B" src="https://github.com/user-attachments/assets/511c219d-4777-4305-8190-43d3ba8f7d3c" />
+  </p>
 
 ## 快速开始（两步搞定）
 
