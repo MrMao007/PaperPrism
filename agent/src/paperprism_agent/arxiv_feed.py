@@ -21,7 +21,7 @@ from paperprism_agent.navigator.embedding import EMB_DIM, _build_embed_text, enc
 
 log = logging.getLogger("paperprism.arxiv_feed")
 
-RSS_BASE = "http://export.arxiv.org/rss"
+RSS_BASE = "https://rss.arxiv.org/rss"
 RSS_TIMEOUT = 60.0
 MAX_PAPERS_PER_CATEGORY = 300  # safety ceiling
 USER_AGENT = "PaperPrism-Agent (+https://github.com/paperprism; local)"
