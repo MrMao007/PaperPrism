@@ -2,7 +2,7 @@
   "name": "paperprism-extension",
   "description": "PaperPrism Chrome extension: auto-archive arxiv papers into a local multi-dimensional library.",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

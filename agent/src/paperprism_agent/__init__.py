@@ -5,4 +5,4 @@ arxiv PDF downloads into a hidden workspace vault, ready for later
 metadata extraction and LLM classification.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
