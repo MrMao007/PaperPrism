@@ -36,7 +36,7 @@
   - 🏷️ **入库自动打标** — 每篇新论文自动生成 2–5 个简短 LLM 标签。
   - 📝 **入库即生成 TL;DR** — 入库完成前即写入 2–3 句摘要（背景 / 方法 / 关键结论）。
   - 📄 **PDF 全文送入 LLM** — 提取正文喂给大模型，分类质量远超仅凭标题和摘要。
-  - 🚀 **登录自启动** — macOS LaunchAgent 让服务常驻后台；`paperprism-agent install` 一键配置。
+  - 🚀 **登录自启动** — `paperprism-agent install` 注册系统服务（macOS LaunchAgent / Linux systemd / Windows 任务计划程序），让 Agent 跨登录常驻后台并在崩溃后自动重启。
   <p align="center">
   <img width="1728" height="959" alt="5134446E-64C5-43BA-B1B3-E069EE994F1F" src="https://github.com/user-attachments/assets/285fbcc3-1e9e-407d-8350-8184ba62e7eb" />
   </p>
@@ -95,20 +95,26 @@ uvx paperprism-agent serve
 
 ```bash
 # 如果尚未安装 uv（https://docs.astral.sh/uv/#installation）
+# macOS / Linux：
 curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows（PowerShell）：
+# powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# 安装 PaperPrism Agent（在 ~/.local/bin/paperprism-agent 创建持久化入口）
+# 安装 PaperPrism Agent
 uv tool install paperprism-agent
 
 # 验证
-paperprism-agent version        # -> 0.2.0
+paperprism-agent version        # -> 0.2.2
 
-# macOS：注册 LaunchAgent，实现登录自启动 + 自动重启
+# 注册自启动服务并立即启动（所有平台同一条命令）：
 paperprism-agent install
-paperprism-agent status         # -> state = running
+paperprism-agent status
 
-# Linux / WSL：在前台运行（systemd 用户单元计划在 v0.2 支持）
-paperprism-agent serve
+# 各平台说明：
+#   macOS   → 注册 launchd LaunchAgent（~/Library/LaunchAgents/）
+#   Linux   → 注册 systemd --user 单元（~/.config/systemd/user/）
+#             无头服务器：sudo loginctl enable-linger $USER
+#   Windows → 注册任务计划程序任务（ONLOGON，无需管理员权限）
 ```
 
 随时使用 `uv tool upgrade paperprism-agent` 升级，然后 `paperprism-agent restart` 重启。
@@ -158,18 +164,37 @@ brew services start paperprism-agent
 curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
 ```
 
-Linux 上的自启动暂未集成 — 手动运行 `paperprism-agent serve` 或自行配置 systemd 用户单元。
+shell 脚本会处理平台检测并自动启动 Agent：macOS 安装 LaunchAgent；Linux 安装 systemd --user 单元。
 
 </details>
 
 <details>
-<summary><strong>Windows / Debian — 从源码安装</strong></summary>
+<summary><strong>Windows — <code>uv tool install</code>（推荐）</strong></summary>
 
-`.msi` 和 `.deb` 计划在 v0.2 支持。目前请使用 `uv tool install paperprism-agent`（推荐），或从 git 安装：
+```powershell
+# 安装 uv（PowerShell）
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 安装 Agent
+uv tool install paperprism-agent
+
+# 注册任务计划程序任务（ONLOGON，无需管理员权限）
+paperprism-agent install
+paperprism-agent status
+```
+
+> **提示：** `secrets.env` 存储你的 API Key — 放在 `%USERPROFILE%\.paperprism\secrets.env`，Agent 启动时自动读取。
+
+`.msi` 安装包在路线图中，目前 Windows 推荐使用 `uv tool install`。
+
+</details>
+
+<details>
+<summary><strong>Debian / 其他 Linux — 从源码安装</strong></summary>
 
 ```bash
 pip install git+https://github.com/MrMao007/PaperPrism#subdirectory=agent
-paperprism-agent serve
+paperprism-agent install   # 注册 systemd --user 单元
 ```
 
 </details>
@@ -199,20 +224,30 @@ cd PaperPrism
 ### 2. 安装并启动 Agent
 
 ```bash
+# macOS / Linux
 cd agent
 python3.11 -m venv .venv            # 也可用 python3.10/3.12
 source .venv/bin/activate
 pip install -e .
 
+# Windows（PowerShell）
+# cd agent
+# python -m venv .venv
+# .venv\Scripts\Activate.ps1
+# pip install -e .
+
 # 验证 CLI 可用
 paperprism-agent version
 
-# macOS：注册 LaunchAgent，实现登录自启动
+# 注册自启动服务（所有平台同一条命令）：
 paperprism-agent install
-paperprism-agent status              # 应显示 "state = running"
+paperprism-agent status
 
-# Linux / WSL：无 launchd，在另一个终端中运行
-# paperprism-agent serve
+# 各平台说明：
+#   macOS   → launchd LaunchAgent — "state = running"
+#   Linux   → systemd --user 单元 — "active (running)"
+#             无头服务器：sudo loginctl enable-linger $USER
+#   Windows → 任务计划程序 ONLOGON 任务（无需管理员权限）
 ```
 
 在另一个 shell 中进行健康检查：
@@ -274,11 +309,11 @@ npm run build                        # 输出到 .output/chrome-mv3/
 ### 开发时常用命令
 
 ```bash
-# Agent
-paperprism-agent status               # launchd 状态
+# Agent（所有平台）
+paperprism-agent status               # 服务状态（launchd / systemd / schtasks）
 paperprism-agent logs --follow        # 追踪 stdout/stderr
-paperprism-agent restart              # 强制 launchd 重新执行
-paperprism-agent uninstall            # 移除 LaunchAgent
+paperprism-agent restart              # 强制服务重新执行
+paperprism-agent uninstall            # 移除自启动服务
 
 # 扩展
 cd extension
