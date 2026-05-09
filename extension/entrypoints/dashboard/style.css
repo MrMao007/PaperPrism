@@ -822,22 +822,6 @@ body::before {
   letter-spacing: -0.2px;
 }
 
-.db-import-x {
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--pp-text-muted);
-  padding: 4px 8px;
-  border-radius: var(--pp-radius-sm);
-  transition: background 120ms var(--pp-ease), color 120ms var(--pp-ease);
-}
-.db-import-x:hover {
-  background: var(--pp-surface-alt);
-  color: var(--pp-text);
-}
-
 .db-import-progressbar {
   height: 8px;
   border-radius: 999px;
@@ -931,35 +915,6 @@ body::before {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.db-import-cancel,
-.db-import-close {
-  padding: 8px 16px;
-  border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid var(--pp-border-strong);
-  background: var(--pp-surface);
-  color: var(--pp-text);
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), color 120ms var(--pp-ease);
-}
-.db-import-cancel {
-  border-color: var(--pp-danger-border);
-  background: var(--pp-danger-bg);
-  color: var(--pp-danger);
-}
-.db-import-cancel:hover {
-  background: var(--pp-danger);
-  border-color: var(--pp-danger);
-  color: #fff;
-}
-.db-import-close:hover {
-  background: var(--pp-accent-ghost);
-  border-color: var(--pp-accent);
-  color: var(--pp-accent);
 }
 
 /* ---------- Nav ---------- */

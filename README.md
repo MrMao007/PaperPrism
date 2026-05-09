@@ -58,8 +58,9 @@ choice. No papers ever leave your machine.
     key result) written before the extension even polls for results.
   - 📄 **PDF full-text** — extracted text fed to the LLM for richer
     classification beyond title + abstract alone.
-  - 🚀 **Auto-start at login** — macOS LaunchAgent keeps the service
-    running in the background; `paperprism-agent install` sets it up.
+  - 🚀 **Auto-start at login** — `paperprism-agent install` registers a
+    system service (macOS LaunchAgent / Linux systemd / Windows Task
+    Scheduler) that keeps the Agent running across logins and restarts on crash.
   <p align="center">
   <img width="1706" height="873" alt="05F63CC5-FE28-499B-926C-4949E35DC65C" src="https://github.com/user-attachments/assets/1b0ebc58-6131-4a52-851a-4f67a2e4af80" />
   </p>
@@ -146,7 +147,7 @@ below instead of `uvx`.
 ### ⭐ Recommended — `uv tool install` (any OS)
 
 This is the **primary, officially supported path**. It works on macOS
-(Apple Silicon & Intel), Linux, and WSL. No prebuilt binary, no
+(Apple Silicon & Intel), Linux, Windows, and WSL. No prebuilt binary, no
 signature pop-ups, no Rosetta — just one Python package pulled from PyPI
 with everything (SQL migrations, default configs) bundled in.
 
@@ -154,20 +155,26 @@ Prerequisite: [uv](https://docs.astral.sh/uv/) 0.4+.
 
 ```bash
 # Install uv itself if you haven't (https://docs.astral.sh/uv/#installation)
+# macOS / Linux:
 curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows (PowerShell):
+# powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# Install PaperPrism Agent (persistent shim at ~/.local/bin/paperprism-agent)
+# Install PaperPrism Agent
 uv tool install paperprism-agent
 
 # Verify
 paperprism-agent version        # -> 0.2.0
 
-# macOS: register a LaunchAgent so it auto-starts at login + auto-restarts
+# Register an auto-start service and start immediately (all platforms):
 paperprism-agent install
-paperprism-agent status         # -> state = running
+paperprism-agent status
 
-# Linux / WSL: run in foreground (systemd user unit is on the v0.2 roadmap)
-paperprism-agent serve
+# Platform-specific notes:
+#   macOS  → registers a launchd LaunchAgent (~/Library/LaunchAgents/)
+#   Linux  → registers a systemd --user unit (~/.config/systemd/user/)
+#             On headless servers: sudo loginctl enable-linger $USER
+#   Windows → registers a Task Scheduler task (ONLOGON, no admin needed)
 ```
 
 Upgrade any time with `uv tool upgrade paperprism-agent` followed by
@@ -229,20 +236,40 @@ brew services start paperprism-agent
 curl -fsSL https://raw.githubusercontent.com/MrMao007/PaperPrism/main/packaging/install.sh | bash
 ```
 
-Auto-start on Linux is not yet wired up — run `paperprism-agent serve`
-manually or set up a systemd user unit.
+The shell script handles platform detection and auto-starts the Agent:
+macOS installs a LaunchAgent; Linux installs a systemd --user unit.
 
 </details>
 
 <details>
-<summary><strong>Windows / Debian — install from source</strong></summary>
+<summary><strong>Windows — <code>uv tool install</code> (recommended)</strong></summary>
 
-`.msi` and `.deb` artifacts are on the v0.2 roadmap. For now, use
-`uv tool install paperprism-agent` (recommended) or install from git:
+```powershell
+# Install uv (PowerShell)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Install the Agent
+uv tool install paperprism-agent
+
+# Register a Task Scheduler task (ONLOGON, no admin rights needed)
+paperprism-agent install
+paperprism-agent status
+```
+
+> **Tip:** `secrets.env` stores your API keys — place it at
+> `%USERPROFILE%\.paperprism\secrets.env`. The Agent reads it at startup.
+
+`.msi` installer artifacts are on the roadmap. For now `uv tool install`
+is the recommended path on Windows.
+
+</details>
+
+<details>
+<summary><strong>Debian / other Linux — install from source</strong></summary>
 
 ```bash
 pip install git+https://github.com/MrMao007/PaperPrism#subdirectory=agent
-paperprism-agent serve
+paperprism-agent install   # registers systemd --user unit
 ```
 
 </details>
@@ -251,7 +278,7 @@ paperprism-agent serve
 
 The fastest way to try PaperPrism without downloading any release artifact:
 clone, install once, load the unpacked extension into Chrome. Works on
-macOS, Linux, and WSL. Total setup time: ~3 minutes.
+macOS, Linux, Windows, and WSL. Total setup time: ~3 minutes.
 
 ### Prerequisites
 
@@ -263,7 +290,8 @@ macOS, Linux, and WSL. Total setup time: ~3 minutes.
 | Git | any | |
 
 Missing Python 3.10+? On macOS: `brew install python@3.11`. On Ubuntu:
-`sudo apt install python3.11 python3.11-venv`.
+`sudo apt install python3.11 python3.11-venv`. On Windows: download from
+[python.org](https://www.python.org/downloads/) or `winget install Python.Python.3.11`.
 
 ### 1. Clone the repo
 
@@ -275,20 +303,30 @@ cd PaperPrism
 ### 2. Install and start the Agent
 
 ```bash
+# macOS / Linux
 cd agent
 python3.11 -m venv .venv            # use python3.10/3.12 if you prefer
 source .venv/bin/activate
 pip install -e .
 
+# Windows (PowerShell)
+# cd agent
+# python -m venv .venv
+# .venv\Scripts\Activate.ps1
+# pip install -e .
+
 # Verify the CLI works
 paperprism-agent version
 
-# macOS: register a LaunchAgent so it auto-starts at login
+# Register an auto-start service (all platforms — same command):
 paperprism-agent install
-paperprism-agent status              # should print "state = running"
+paperprism-agent status
 
-# Linux / WSL: no launchd; run it in a separate terminal
-# paperprism-agent serve
+# Platform behaviour:
+#   macOS   → launchd LaunchAgent — "state = running"
+#   Linux   → systemd --user unit — "active (running)"
+#             Headless server: sudo loginctl enable-linger $USER
+#   Windows → Task Scheduler ONLOGON task (no admin needed)
 ```
 
 Health check from another shell:
@@ -380,11 +418,11 @@ papers always keep their own tags even after a topic is deleted.
 ### Useful commands while developing
 
 ```bash
-# Agent
-paperprism-agent status               # launchd state
+# Agent (all platforms)
+paperprism-agent status               # service state (launchd / systemd / schtasks)
 paperprism-agent logs --follow        # tail stdout/stderr
-paperprism-agent restart              # force launchd to re-exec
-paperprism-agent uninstall            # remove the LaunchAgent
+paperprism-agent restart              # force service re-exec
+paperprism-agent uninstall            # remove the auto-start service
 
 # Extension
 cd extension

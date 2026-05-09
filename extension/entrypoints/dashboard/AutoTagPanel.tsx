@@ -115,7 +115,7 @@ export function AutoTagPanel({ paperIds, paperTitles, onClose, onDone }: Props) 
             {phase === 'done' && (snapshot?.status === 'done' ? 'Topic created' : 'Auto-tag finished')}
           </h2>
           {phase !== 'running' && (
-            <button type="button" className="db-import-x" onClick={handleClose} aria-label="Close">
+            <button type="button" className="pp-btn" data-variant="subtle" data-shape="square" onClick={handleClose} aria-label="Close">
               ×
             </button>
           )}
@@ -186,10 +186,10 @@ function ConfirmView({
       {error && <div className="db-tag-error">{error}</div>}
 
       <div className="db-import-actions">
-        <button type="button" className="db-import-close" onClick={onCancel} disabled={busy}>
+        <button type="button" className="pp-btn" data-variant="ghost" onClick={onCancel} disabled={busy}>
           Cancel
         </button>
-        <button type="button" className="db-import-btn" onClick={onStart} disabled={busy || paperIds.length === 0}>
+        <button type="button" className="pp-btn" data-variant="accent" onClick={onStart} disabled={busy || paperIds.length === 0}>
           {busy ? 'Starting…' : 'Create topic'}
         </button>
       </div>
@@ -278,22 +278,22 @@ function ProgressView({
 
       <div className="db-import-actions">
         {running ? (
-          <button type="button" className="db-import-cancel" onClick={onCancel} disabled={busy}>
+          <button type="button" className="pp-btn" data-variant="danger" onClick={onCancel} disabled={busy}>
             {busy ? 'Cancelling…' : 'Cancel'}
           </button>
         ) : (
           <>
             {hasFailed && (
-              <button type="button" className="db-import-close" onClick={onRetry} disabled={busy}>
+              <button type="button" className="pp-btn" data-variant="ghost" onClick={onRetry} disabled={busy}>
                 Retry failed
               </button>
             )}
             {snap.status === 'done' && snap.topic_slug && (
-              <button type="button" className="db-import-btn" onClick={onGoTopic}>
+              <button type="button" className="pp-btn" data-variant="accent" onClick={onGoTopic}>
                 View topic
               </button>
             )}
-            <button type="button" className="db-import-close" onClick={onClose}>
+            <button type="button" className="pp-btn" data-variant="ghost" onClick={onClose}>
               Close
             </button>
           </>

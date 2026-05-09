@@ -27,6 +27,8 @@ agent/
     ├── paths.py                  # resolves ~/.paperprism/* (db, vault, logs)
     ├── logging_setup.py          # rotating file + stdout
     ├── launchd.py                # macOS LaunchAgent install/uninstall
+    ├── systemd.py                # Linux systemd --user unit install/uninstall
+    ├── winsvc.py                 # Windows Task Scheduler install/uninstall (schtasks.exe)
     ├── db.py                     # connect() + migrations runner
     ├── migrations/               # numbered .sql, append-only
     ├── repository.py             # ALL SQL access; normalises tags, joins topics
@@ -221,8 +223,8 @@ uv cache clean paperprism-agent           # force re-download
 pip install -e .
 paperprism-agent serve --log-level debug
 
-# After editing Python, if launchd-managed:
-paperprism-agent restart
+# After editing Python, restart the managed service:
+paperprism-agent restart    # works on macOS (launchd), Linux (systemd), Windows (schtasks)
 
 # DB spelunking
 sqlite3 ~/.paperprism/db.sqlite '.tables'

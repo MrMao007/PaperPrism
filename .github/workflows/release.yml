@@ -42,6 +42,10 @@ jobs:
             os: ubuntu-22.04-arm
             asset_os: linux
             asset_arch: arm64
+          - target: windows-x86_64
+            os: windows-latest
+            asset_os: windows
+            asset_arch: x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -51,12 +55,29 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Build binary with PyInstaller
+      - name: Build binary with PyInstaller (POSIX)
+        if: matrix.asset_os != 'windows'
         shell: bash
         run: |
           bash packaging/pyinstaller/build.sh
 
-      - name: Package tarball
+      - name: Build binary with PyInstaller (Windows)
+        if: matrix.asset_os == 'windows'
+        shell: pwsh
+        run: |
+          cd packaging/pyinstaller
+          python -m venv .build-venv
+          .build-venv\Scripts\Activate.ps1
+          python -m pip install --upgrade pip wheel
+          pip install "${{ github.workspace }}\agent"
+          pip install "pyinstaller>=6.6"
+          Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
+          pyinstaller paperprism-agent.spec --clean --noconfirm
+          Write-Host "Built:"
+          Get-ChildItem dist\
+
+      - name: Package tarball (POSIX)
+        if: matrix.asset_os != 'windows'
         shell: bash
         run: |
           cd packaging/pyinstaller/dist
@@ -64,6 +85,17 @@ jobs:
           tar -czf "${TAR}" paperprism-agent
           shasum -a 256 "${TAR}" | tee "${TAR}.sha256"
           ls -lh
+
+      - name: Package zip (Windows)
+        if: matrix.asset_os == 'windows'
+        shell: pwsh
+        run: |
+          cd packaging/pyinstaller/dist
+          $ZIP = "paperprism-agent-windows-x86_64.zip"
+          Compress-Archive -Path paperprism-agent.exe -DestinationPath $ZIP
+          $hash = (Get-FileHash $ZIP -Algorithm SHA256).Hash.ToLower()
+          "$hash  $ZIP" | Out-File -Encoding utf8 "$ZIP.sha256"
+          Get-ChildItem
 
       - name: Build macOS .pkg installer
         if: matrix.asset_os == 'macos'
@@ -83,6 +115,8 @@ jobs:
           path: |
             packaging/pyinstaller/dist/paperprism-agent-*.tar.gz
             packaging/pyinstaller/dist/paperprism-agent-*.tar.gz.sha256
+            packaging/pyinstaller/dist/paperprism-agent-*.zip
+            packaging/pyinstaller/dist/paperprism-agent-*.zip.sha256
             packaging/macos/dist/*.pkg
           if-no-files-found: warn
 
@@ -102,8 +136,12 @@ jobs:
       - name: Flatten assets
         run: |
           mkdir -p upload
-          find release-assets -type f \( -name '*.tar.gz' -o -name '*.sha256' -o -name '*.pkg' \) \
-            -exec cp {} upload/ \;
+          find release-assets -type f \( \
+            -name '*.tar.gz' -o \
+            -name '*.zip'    -o \
+            -name '*.sha256' -o \
+            -name '*.pkg'    \
+          \) -exec cp {} upload/ \;
           ls -lh upload
 
       - name: Create / update GitHub Release
@@ -116,18 +154,29 @@ jobs:
           body: |
             ## Install
 
-            ### ⭐ Recommended — PyPI via `uv`
+            ### ⭐ Recommended — PyPI via `uv` (all platforms)
             ```
             uvx paperprism-agent serve                # one-off, no install
             uv tool install paperprism-agent          # persistent install
-            paperprism-agent install                   # macOS auto-start at login
+            paperprism-agent install                  # register auto-start service
             ```
-            Requires [`uv`](https://docs.astral.sh/uv/). Works on macOS,
-            Linux (any arch), and Windows.
+            Requires [`uv`](https://docs.astral.sh/uv/). Works on macOS, Linux, and Windows.
+
+            `paperprism-agent install` registers:
+            - **macOS** → launchd LaunchAgent (`~/Library/LaunchAgents/`)
+            - **Linux** → systemd --user unit (`~/.config/systemd/user/`)
+            - **Windows** → Task Scheduler ONLOGON task (no admin rights needed)
 
             ### One-line shell installer (macOS / Linux)
             ```
             curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packaging/install.sh | bash
+            ```
+
+            ### Windows — binary zip
+            Download `paperprism-agent-windows-x86_64.zip` below, extract
+            `paperprism-agent.exe` somewhere on your `PATH`, then run:
+            ```
+            paperprism-agent install
             ```
 
             ### macOS installer
@@ -140,24 +189,17 @@ jobs:
             brew services start paperprism-agent
             ```
 
-            ### Manual (tarball)
-            Download the matching `paperprism-agent-<os>-<arch>.tar.gz`, extract,
-            move the `paperprism-agent` binary somewhere on your PATH, and run
-            `paperprism-agent install` to register the auto-start service.
+            ### Manual (tarball / zip)
+            Download the matching archive for your platform, extract the binary
+            somewhere on your PATH, and run `paperprism-agent install`.
 
             ### Chrome extension
             Install from the
             [Chrome Web Store](https://chromewebstore.google.com/detail/jjlclcocagjnohgcpbgcpkodcnmmabif)
             — or load the latest `paperprism-extension-<ver>-chrome.zip`
             from this release unpacked via `chrome://extensions`.
-  # TODO(v0.2): Windows (.msi via WiX) and Debian (.deb via dpkg-deb) builds.
-  # Windows needs a windows-latest runner + wixtoolset; .deb needs fpm or a
-  # Debian control file. Both are tracked but out-of-scope for the initial
-  # macOS/Linux rollout.
-  #
-  # TODO(v0.2): Auto-publish to PyPI on tag push. Currently the `agent/` wheel
-  # is uploaded manually with `python -m build && twine upload dist/*` from a
-  # maintainer's machine (see agent/AGENTS.md → "Publishing to PyPI").
-  # Blocker for automation: `PYPI_API_TOKEN` secret or a PyPI Trusted
-  # Publisher config on the repo. Until then, README's Quick start path
-  # (uvx / uv tool install) relies on the manual PyPI upload.
+  # Note: PyPI publish is a manual step.
+  # Run `python -m build && twine upload dist/*` from `agent/` after tagging
+  # (see agent/AGENTS.md → "Publishing to PyPI").
+  # Automating this requires a `PYPI_API_TOKEN` secret or a PyPI Trusted
+  # Publisher config — neither is configured on this repo yet.

@@ -629,7 +629,7 @@ function ImportPanel({
         <div className="db-import-head">
           <h2 className="db-import-title">Import folder</h2>
           {!state.running && (
-            <button type="button" className="db-import-x" onClick={onClose} aria-label="Close">×</button>
+            <button type="button" className="pp-btn" data-variant="subtle" data-shape="square" onClick={onClose} aria-label="Close">×</button>
           )}
         </div>
         <div className="db-import-progressbar">
@@ -667,9 +667,9 @@ function ImportPanel({
         )}
         <div className="db-import-actions">
           {state.running ? (
-            <button type="button" className="db-import-cancel" onClick={onCancel}>Cancel</button>
+            <button type="button" className="pp-btn" data-variant="danger" onClick={onCancel}>Cancel</button>
           ) : (
-            <button type="button" className="db-import-close" onClick={onClose}>Close</button>
+            <button type="button" className="pp-btn" data-variant="ghost" onClick={onClose}>Close</button>
           )}
         </div>
       </div>

@@ -102,7 +102,9 @@ cd agent
 python3.11 -m venv .venv && source .venv/bin/activate
 pip install -e .
 paperprism-agent serve          # foreground
-paperprism-agent install        # macOS LaunchAgent
+paperprism-agent install        # macOS: launchd LaunchAgent
+                                # Linux: systemd --user unit
+                                # Windows: Task Scheduler ONLOGON task
 paperprism-agent restart        # after Python changes (editable install
                                 # links source but process holds old imports)
 paperprism-agent logs --follow

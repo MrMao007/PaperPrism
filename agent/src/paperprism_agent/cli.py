@@ -1,12 +1,13 @@
 """Command-line entry point.
 
 Subcommands:
-  serve       Run the HTTP server in the foreground.
-  install     Install a macOS launchd LaunchAgent that keeps the server
-              running across logins and auto-restarts on crash.
-  uninstall   Remove the LaunchAgent.
-  status      Print launchd state for the service.
-  restart     Force launchd to (re)start the service immediately.
+  serve       Run the HTTP server in the foreground (all platforms).
+  install     Register an auto-start service and start it immediately.
+                macOS  → launchd LaunchAgent (~/Library/LaunchAgents/)
+                Linux  → systemd --user unit (~/.config/systemd/user/)
+  uninstall   Stop and remove the auto-start service.
+  status      Print service status (launchd on macOS, systemd on Linux).
+  restart     Force the service to (re)start immediately.
   logs        Tail the Agent logs.
   version     Print the Agent version.
 
@@ -29,6 +30,8 @@ import uvicorn
 
 from paperprism_agent import __version__
 from paperprism_agent import launchd as launchd_mod
+from paperprism_agent import systemd as systemd_mod
+from paperprism_agent import winsvc as winsvc_mod
 from paperprism_agent.config import Config
 from paperprism_agent.logging_setup import setup_logging
 from paperprism_agent.paths import clear_runtime, write_runtime
@@ -142,15 +145,17 @@ def cmd_version(_args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_install(args: argparse.Namespace) -> int:
-    if sys.platform != "darwin":
-        print(
-            "install is currently macOS-only (launchd). "
-            "On Linux use systemd --user; on Windows use Task Scheduler.",
-            file=sys.stderr,
-        )
-        return 2
+def _unsupported_platform(command: str) -> int:
+    print(
+        f"`{command}` is not supported on {sys.platform}. "
+        "Supported platforms: macOS (launchd), Linux (systemd --user), "
+        "Windows (Task Scheduler via schtasks.exe).",
+        file=sys.stderr,
+    )
+    return 2
 
+
+def cmd_install(args: argparse.Namespace) -> int:
     cfg = Config.from_args(
         host=args.host,
         port=args.port,
@@ -159,18 +164,58 @@ def cmd_install(args: argparse.Namespace) -> int:
     )
     cfg.paths.ensure()
 
-    try:
-        plist = launchd_mod.write_plist(cfg)
-    except RuntimeError as exc:
-        # Typically raised when invoked via an ephemeral `uvx` environment.
-        print(str(exc), file=sys.stderr)
-        return 2
-    print(f"Wrote plist: {plist}")
+    if sys.platform == "darwin":
+        try:
+            plist = launchd_mod.write_plist(cfg)
+        except RuntimeError as exc:
+            # Raised when invoked via an ephemeral `uvx` environment.
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(f"Wrote plist: {plist}")
+        launchd_mod.bootstrap()
+        print(
+            f"Loaded service {launchd_mod.LABEL} into launchd "
+            f"(domain gui/{os.getuid()})."
+        )
 
-    launchd_mod.bootstrap()
-    print(
-        f"Loaded service {launchd_mod.LABEL} into launchd (domain gui/{os.getuid()})."
-    )
+    elif sys.platform.startswith("linux"):
+        try:
+            unit = systemd_mod.write_unit(cfg)
+        except RuntimeError as exc:
+            # Raised when invoked via an ephemeral `uvx` environment.
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(f"Wrote unit: {unit}")
+        try:
+            systemd_mod.enable_and_start()
+        except subprocess.CalledProcessError as exc:
+            print(f"systemctl failed: {exc.stderr or exc}", file=sys.stderr)
+            return 1
+        print(f"Enabled and started {systemd_mod.UNIT_NAME}.")
+        print(systemd_mod.linger_hint())
+
+    elif sys.platform == "win32":
+        try:
+            bat = winsvc_mod.write_wrapper_bat(cfg)
+            winsvc_mod.create_task(cfg)
+        except RuntimeError as exc:
+            # Raised when invoked via an ephemeral `uvx` environment.
+            print(str(exc), file=sys.stderr)
+            return 2
+        except subprocess.CalledProcessError as exc:
+            print(f"schtasks failed: {exc.stderr or exc}", file=sys.stderr)
+            return 1
+        print(f"Wrote launcher: {bat}")
+        print(f"Registered Task Scheduler task: {winsvc_mod.TASK_NAME}")
+        try:
+            winsvc_mod.run_task_now()
+            print(f"Task {winsvc_mod.TASK_NAME} started.")
+        except subprocess.CalledProcessError:
+            print("Task registered but could not start immediately; it will run at next logon.")
+
+    else:
+        return _unsupported_platform("install")
+
     print(
         f"Agent is starting on http://{cfg.host}:{cfg.port}. "
         "Check `paperprism-agent status` or `paperprism-agent logs --follow`."
@@ -179,46 +224,118 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 
 def cmd_uninstall(_args: argparse.Namespace) -> int:
-    if sys.platform != "darwin":
-        print("uninstall is currently macOS-only (launchd).", file=sys.stderr)
-        return 2
-    launchd_mod.bootout()
-    removed = launchd_mod.remove_plist()
-    if removed:
-        print(f"Removed {launchd_mod.plist_path()}")
-    else:
-        print("No plist to remove; launchd service unloaded (if present).")
-    return 0
+    if sys.platform == "darwin":
+        launchd_mod.bootout()
+        removed = launchd_mod.remove_plist()
+        if removed:
+            print(f"Removed {launchd_mod.plist_path()}")
+        else:
+            print("No plist to remove; launchd service unloaded (if present).")
+        return 0
+
+    if sys.platform.startswith("linux"):
+        systemd_mod.stop_and_disable()
+        removed = systemd_mod.remove_unit()
+        if removed:
+            print(f"Removed {systemd_mod.unit_path()}")
+        else:
+            print("No unit file to remove; systemd service stopped (if present).")
+        return 0
+
+    if sys.platform == "win32":
+        winsvc_mod.end_task()
+        winsvc_mod.delete_task()
+        bat = winsvc_mod._wrapper_bat_path(Config.from_args())
+        if bat.exists():
+            bat.unlink()
+            print(f"Removed launcher: {bat}")
+        print(f"Deleted Task Scheduler task: {winsvc_mod.TASK_NAME}")
+        return 0
+
+    return _unsupported_platform("uninstall")
 
 
 def cmd_status(_args: argparse.Namespace) -> int:
-    if sys.platform != "darwin":
-        print("status is currently macOS-only (launchd).", file=sys.stderr)
-        return 2
-    code, text = launchd_mod.print_status()
-    if code != 0:
-        print(
-            f"Service {launchd_mod.LABEL} is NOT loaded.\n"
-            "Run `paperprism-agent install` to set it up."
-        )
-        return 1
-    print(text)
-    return 0
+    if sys.platform == "darwin":
+        code, text = launchd_mod.print_status()
+        if code != 0:
+            print(
+                f"Service {launchd_mod.LABEL} is NOT loaded.\n"
+                "Run `paperprism-agent install` to set it up."
+            )
+            return 1
+        print(text)
+        return 0
+
+    if sys.platform.startswith("linux"):
+        code, text = systemd_mod.print_status()
+        if code != 0:
+            print(
+                f"Service {systemd_mod.UNIT_NAME} is NOT active.\n"
+                "Run `paperprism-agent install` to set it up."
+            )
+            return 1
+        print(text)
+        return 0
+
+    if sys.platform == "win32":
+        if not winsvc_mod.task_exists():
+            print(
+                f"Task {winsvc_mod.TASK_NAME} is NOT registered.\n"
+                "Run `paperprism-agent install` to set it up."
+            )
+            return 1
+        code, text = winsvc_mod.print_status()
+        print(text)
+        return code
+
+    return _unsupported_platform("status")
 
 
 def cmd_restart(_args: argparse.Namespace) -> int:
-    if sys.platform != "darwin":
-        print("restart is currently macOS-only (launchd).", file=sys.stderr)
-        return 2
-    if not launchd_mod.is_loaded():
-        print(
-            "Service is not loaded. Run `paperprism-agent install` first.",
-            file=sys.stderr,
-        )
-        return 1
-    launchd_mod.kickstart()
-    print(f"Requested kickstart of {launchd_mod.LABEL}.")
-    return 0
+    if sys.platform == "darwin":
+        if not launchd_mod.is_loaded():
+            print(
+                "Service is not loaded. Run `paperprism-agent install` first.",
+                file=sys.stderr,
+            )
+            return 1
+        launchd_mod.kickstart()
+        print(f"Requested kickstart of {launchd_mod.LABEL}.")
+        return 0
+
+    if sys.platform.startswith("linux"):
+        if not systemd_mod.is_active():
+            print(
+                "Service is not active. Run `paperprism-agent install` first.",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            systemd_mod.restart()
+        except subprocess.CalledProcessError as exc:
+            print(f"systemctl restart failed: {exc.stderr or exc}", file=sys.stderr)
+            return 1
+        print(f"Restarted {systemd_mod.UNIT_NAME}.")
+        return 0
+
+    if sys.platform == "win32":
+        if not winsvc_mod.task_exists():
+            print(
+                f"Task {winsvc_mod.TASK_NAME} is not registered. "
+                "Run `paperprism-agent install` first.",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            winsvc_mod.restart()
+        except subprocess.CalledProcessError as exc:
+            print(f"schtasks failed: {exc.stderr or exc}", file=sys.stderr)
+            return 1
+        print(f"Restarted Task Scheduler task: {winsvc_mod.TASK_NAME}.")
+        return 0
+
+    return _unsupported_platform("restart")
 
 
 def cmd_logs(args: argparse.Namespace) -> int:
@@ -233,12 +350,19 @@ def cmd_logs(args: argparse.Namespace) -> int:
     if not target.exists():
         print(f"No such log yet: {target}", file=sys.stderr)
         return 1
-    cmd = ["tail", f"-n{args.n}"]
-    if args.follow:
-        cmd.append("-f")
-    cmd.append(str(target))
     try:
-        return subprocess.call(cmd)
+        if sys.platform == "win32":
+            # Windows has no `tail`; use PowerShell's Get-Content instead.
+            ps_cmd = f"Get-Content -Path '{target}' -Tail {args.n}"
+            if args.follow:
+                ps_cmd += " -Wait"
+            return subprocess.call(["powershell", "-NoProfile", "-Command", ps_cmd])
+        else:
+            cmd = ["tail", f"-n{args.n}"]
+            if args.follow:
+                cmd.append("-f")
+            cmd.append(str(target))
+            return subprocess.call(cmd)
     except KeyboardInterrupt:
         return 0
 

@@ -192,12 +192,15 @@ def load_secrets(path: Path) -> tuple[dict[str, str], list[str]]:
         return {}, [f"cannot stat secrets file {path}: {exc}"]
 
     # Enforce 600 to avoid accidentally group/world-readable secret files.
-    perm = stat.S_IMODE(st.st_mode)
-    if perm & 0o077:
-        return {}, [
-            f"refusing to read {path}: permissions are {oct(perm)}, "
-            f"must be 0600 (run: chmod 600 {path})"
-        ]
+    # Windows has no POSIX permission model — stat always returns 0o666,
+    # so we skip the check there and rely on NTFS ACLs for access control.
+    if sys.platform != "win32":
+        perm = stat.S_IMODE(st.st_mode)
+        if perm & 0o077:
+            return {}, [
+                f"refusing to read {path}: permissions are {oct(perm)}, "
+                f"must be 0600 (run: chmod 600 {path})"
+            ]
 
     out: dict[str, str] = {}
     for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

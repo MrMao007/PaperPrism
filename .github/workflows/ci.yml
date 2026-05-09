@@ -1,0 +1,121 @@
+name: CI
+
+# Quality gate that runs on every PR and every push to main.
+# All jobs must pass before merging.
+#
+# Jobs:
+#   test     — pytest on macOS / Linux / Windows (Python 3.11)
+#   lint     — syntax check all Python source files (ubuntu only)
+#   extension — tsc type-check + production build (ubuntu only)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# Cancel in-flight runs for the same PR / branch so we don't waste minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Python test suite — runs on all three target platforms
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: Linux x86_64
+          - os: macos-14
+            label: macOS arm64
+          - os: windows-latest
+            label: Windows x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: agent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: agent/pyproject.toml
+
+      - name: Install agent (editable) + dev deps
+        run: pip install -e ".[dev]"
+
+      - name: Run pytest
+        run: python -m pytest tests/ -q --tb=short
+
+  # ---------------------------------------------------------------------------
+  # 2. Python syntax / import check — fast gate, Linux only
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint (Python syntax)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile-check all Python sources
+        # py_compile raises SyntaxError on bad files; find reports any failure.
+        run: |
+          find agent/src -name "*.py" | sort | while read f; do
+            python -m py_compile "$f" && echo "OK  $f" || { echo "FAIL $f"; exit 1; }
+          done
+
+      - name: Check imports are self-consistent
+        # Import the top-level package to catch missing __init__ re-exports.
+        working-directory: agent
+        run: |
+          pip install -e ".[dev]" -q
+          python -c "
+          import paperprism_agent
+          from paperprism_agent import cli, config, paths, launchd, systemd, winsvc
+          print('All platform modules imported successfully.')
+          "
+
+  # ---------------------------------------------------------------------------
+  # 3. Chrome extension — type-check + build (Linux only)
+  # ---------------------------------------------------------------------------
+  extension:
+    name: Extension (tsc + build)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: extension
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check (tsc --noEmit)
+        run: npm run compile
+
+      - name: Production build
+        run: npm run build
