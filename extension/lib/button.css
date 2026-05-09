@@ -1,0 +1,248 @@
+/*
+ * PaperPrism unified Button system — "Observatory Console" key shapes.
+ *
+ * One base class (.pp-btn) + three orthogonal data-attributes:
+ *   data-variant : ghost (default) | primary | danger | subtle | accent
+ *   data-size    : sm (28px) | md (32px, default) | lg (38px)
+ *   data-shape   : pill (default, rounded rect) | square (icon-only) | round
+ *
+ * Every button shares: same focus ring, same hover glow ring (variant-tinted),
+ * same active depress, same disabled fade.  No bespoke per-button styling
+ * elsewhere in the codebase — page-level CSS may only adjust margin / position.
+ *
+ * Theme tokens consumed (defined in lib/theme.css):
+ *   --pp-accent / --pp-accent-hover / --pp-accent-ghost / --pp-accent-ring
+ *   --pp-danger / --pp-danger-bg / --pp-danger-border
+ *   --pp-text / --pp-text-muted / --pp-surface / --pp-surface-alt / --pp-border
+ *   --pp-radius-sm / --pp-shadow-sm / --pp-ease
+ */
+
+.pp-btn {
+  /* Geometry — defaults match data-size="md" */
+  --pp-btn-h: 32px;
+  --pp-btn-px: 12px;
+  --pp-btn-gap: 6px;
+  --pp-btn-radius: 8px;
+  --pp-btn-icon: 16px;
+  --pp-btn-font: 12.5px;
+  --pp-btn-letter: 0.1px;
+
+  /* Color (overridden per variant) */
+  --pp-btn-bg: transparent;
+  --pp-btn-bg-hover: var(--pp-accent-ghost);
+  --pp-btn-fg: var(--pp-text);
+  --pp-btn-fg-hover: var(--pp-accent);
+  --pp-btn-border: var(--pp-border-strong);
+  --pp-btn-border-hover: var(--pp-accent);
+  --pp-btn-glow: rgba(77, 150, 255, 0.32);
+  --pp-btn-ring: var(--pp-accent-ring);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pp-btn-gap);
+  height: var(--pp-btn-h);
+  min-width: var(--pp-btn-h);
+  padding: 0 var(--pp-btn-px);
+  border: 1px solid var(--pp-btn-border);
+  border-radius: var(--pp-btn-radius);
+  background: var(--pp-btn-bg);
+  color: var(--pp-btn-fg);
+  font-family: inherit;
+  font-size: var(--pp-btn-font);
+  font-weight: 550;
+  letter-spacing: var(--pp-btn-letter);
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  /* Subtle inner highlight so the key looks tactile, like a console button. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    background 160ms var(--pp-ease),
+    border-color 160ms var(--pp-ease),
+    color 160ms var(--pp-ease),
+    box-shadow 200ms var(--pp-ease),
+    transform 80ms var(--pp-ease);
+}
+
+/* SVG icons inherit currentColor and align optically with the label. */
+.pp-btn > svg {
+  width: var(--pp-btn-icon);
+  height: var(--pp-btn-icon);
+  flex: 0 0 auto;
+  display: block;
+}
+
+/* ---------- States ---------- */
+
+.pp-btn:hover:not(:disabled) {
+  background: var(--pp-btn-bg-hover);
+  border-color: var(--pp-btn-border-hover);
+  color: var(--pp-btn-fg-hover);
+  box-shadow:
+    0 0 0 1px var(--pp-btn-border-hover),
+    0 0 14px var(--pp-btn-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.pp-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.18);
+}
+
+.pp-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--pp-bg),
+    0 0 0 4px var(--pp-btn-ring);
+}
+
+.pp-btn:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Sizes ---------- */
+
+.pp-btn[data-size='sm'] {
+  --pp-btn-h: 28px;
+  --pp-btn-px: 10px;
+  --pp-btn-gap: 5px;
+  --pp-btn-radius: 7px;
+  --pp-btn-icon: 14px;
+  --pp-btn-font: 12px;
+}
+
+.pp-btn[data-size='lg'] {
+  --pp-btn-h: 38px;
+  --pp-btn-px: 16px;
+  --pp-btn-gap: 8px;
+  --pp-btn-radius: 9px;
+  --pp-btn-icon: 18px;
+  --pp-btn-font: 13.5px;
+}
+
+/* ---------- Shapes ---------- */
+
+/* Square = icon-only key.  Width collapses to height; padding goes to 0. */
+.pp-btn[data-shape='square'] {
+  width: var(--pp-btn-h);
+  padding: 0;
+  --pp-btn-gap: 0;
+}
+
+/* Round = perfect circle (e.g. tag-chip dismiss). */
+.pp-btn[data-shape='round'] {
+  width: var(--pp-btn-h);
+  padding: 0;
+  border-radius: 999px;
+  --pp-btn-gap: 0;
+}
+
+/* ---------- Variants ---------- */
+
+/* Ghost (default) — translucent, accent-tinted on hover. */
+.pp-btn[data-variant='ghost'],
+.pp-btn:not([data-variant]) {
+  --pp-btn-bg: var(--pp-surface);
+  --pp-btn-bg-hover: var(--pp-accent-ghost);
+  --pp-btn-fg: var(--pp-text-muted);
+  --pp-btn-fg-hover: var(--pp-accent);
+  --pp-btn-border: var(--pp-border);
+  --pp-btn-border-hover: var(--pp-accent);
+  --pp-btn-glow: rgba(77, 150, 255, 0.28);
+}
+
+/* Primary — solid accent fill, used for the single most important action
+ * on the page (e.g. Import folder).  Inner highlight + spectrum glow. */
+.pp-btn[data-variant='primary'] {
+  --pp-btn-bg: var(--pp-accent);
+  --pp-btn-bg-hover: var(--pp-accent-hover);
+  --pp-btn-fg: #ffffff;
+  --pp-btn-fg-hover: #ffffff;
+  --pp-btn-border: var(--pp-accent);
+  --pp-btn-border-hover: var(--pp-accent-hover);
+  --pp-btn-glow: rgba(77, 150, 255, 0.55);
+}
+.pp-btn[data-variant='primary'] {
+  box-shadow:
+    0 0 14px rgba(77, 150, 255, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.pp-btn[data-variant='primary']:hover:not(:disabled) {
+  box-shadow:
+    0 0 0 1px var(--pp-accent-hover),
+    0 0 24px rgba(77, 150, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+/* Danger — quiet red ghost, blooms full red on hover. */
+.pp-btn[data-variant='danger'] {
+  --pp-btn-bg: var(--pp-danger-bg);
+  --pp-btn-bg-hover: var(--pp-danger);
+  --pp-btn-fg: var(--pp-danger);
+  --pp-btn-fg-hover: #ffffff;
+  --pp-btn-border: var(--pp-danger-border);
+  --pp-btn-border-hover: var(--pp-danger);
+  --pp-btn-glow: rgba(255, 107, 107, 0.42);
+  --pp-btn-ring: rgba(255, 107, 107, 0.45);
+}
+
+/* Subtle — fully transparent, no border; used for inline secondary
+ * affordances (tag-chip × dismiss, link-style buttons). */
+.pp-btn[data-variant='subtle'] {
+  --pp-btn-bg: transparent;
+  --pp-btn-bg-hover: var(--pp-surface-alt);
+  --pp-btn-fg: var(--pp-text-subtle);
+  --pp-btn-fg-hover: var(--pp-text);
+  --pp-btn-border: transparent;
+  --pp-btn-border-hover: transparent;
+  --pp-btn-glow: transparent;
+}
+.pp-btn[data-variant='subtle']:hover:not(:disabled) {
+  box-shadow: none;
+}
+
+/* Accent — quiet ghost that uses spectrum-violet on hover (used for
+ * "Create topic" and other LLM-flavoured actions). */
+.pp-btn[data-variant='accent'] {
+  --pp-btn-bg: var(--pp-purple-bg);
+  --pp-btn-bg-hover: rgba(176, 132, 204, 0.28);
+  --pp-btn-fg: var(--pp-purple-fg);
+  --pp-btn-fg-hover: #ffffff;
+  --pp-btn-border: rgba(176, 132, 204, 0.35);
+  --pp-btn-border-hover: var(--pp-spectrum-violet);
+  --pp-btn-glow: rgba(176, 132, 204, 0.45);
+  --pp-btn-ring: rgba(176, 132, 204, 0.50);
+}
+
+/* ---------- Button group: render multiple buttons as a tight set ---------- */
+
+.pp-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- In-button loading spinner ---------- */
+
+/* A tiny rotating ring that swaps in for the icon while an async
+ * action is in flight (PDF open, Delete, Import).  Sized to match the
+ * current button's icon dimension so the layout never jumps. */
+.pp-btn-spinner {
+  width: var(--pp-btn-icon);
+  height: var(--pp-btn-icon);
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: pp-btn-spin 720ms linear infinite;
+}
+
+@keyframes pp-btn-spin {
+  to { transform: rotate(360deg); }
+}

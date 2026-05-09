@@ -1,42 +1,122 @@
+/*
+ * PaperPrism — Options / Setup (Deep Space Atlas)
+ * -------------------------------------------------
+ * Global tokens come from lib/theme.css (imported by main.tsx).
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+/* Lock the document width and reserve space for the scrollbar gutter
+ * even when content is short.  Without `scrollbar-gutter: stable`, the
+ * vertical scrollbar appears/disappears as <details> sections expand,
+ * which changes the viewport width and triggers a visible jump in the
+ * centred .opt-wrap container.  Reserving the gutter keeps the layout
+ * pixel-stable across expand/collapse.                              */
+html {
+  width: 100%;
+  scrollbar-gutter: stable;
+  /* Belt-and-braces: even if a child overflows horizontally, never
+   * surface a horizontal scrollbar — clip silently instead. */
+  overflow-x: hidden;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   margin: 0;
-  background: #f7f8fa;
-  color: #1f2328;
+  width: 100%;
+  background-color: var(--pp-bg);
+  background-image: var(--pp-nebula);
+  background-attachment: fixed;
+  color: var(--pp-text);
+  font-family: var(--pp-font-body);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  body { background: #0f1115; color: #e6e6e6; }
-  .opt-card { background: #1a1b1e !important; border-color: #2a2d33 !important; }
-  .opt-input { background: #0f1115 !important; color: #e6e6e6 !important; border-color: #2a2d33 !important; }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--pp-starfield), var(--pp-grid);
+  background-size: 600px 600px, var(--pp-grid-size);
+  background-attachment: fixed;
+  pointer-events: none;
+  z-index: 0;
 }
 
+/* ── Layout ────────────────────────────────────────────────── */
 .opt-wrap {
+  position: relative;
+  z-index: 1;
+  /* Pin width to a fixed centred column.  Using `width: min(720px, …)`
+   * (rather than only `max-width`) gives the container a definite
+   * width so children with `width: 100%` resolve against a stable box
+   * regardless of viewport changes triggered by <details> expansion. */
+  width: min(720px, 100% - 32px);
   max-width: 720px;
   margin: 40px auto;
-  padding: 0 16px;
+  padding: 0 16px 64px;
+  /* Prevent any descendant (long placeholders, code blocks, select
+   * options) from forcing the column wider than its declared width. */
+  min-width: 0;
 }
 
+/* ── Header ─────────────────────────────────────────────────── */
 .opt-title {
+  font-family: var(--pp-font-display);
   font-size: 22px;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--pp-text);
   margin: 0 0 4px;
 }
 
 .opt-sub {
-  color: #6b7280;
   font-size: 13px;
-  margin: 0 0 20px;
+  color: var(--pp-text-muted);
+  margin: 0 0 24px;
+  line-height: 1.55;
 }
 
+.opt-sub code {
+  font-family: var(--pp-font-mono);
+  font-size: 12px;
+  padding: 1px 6px;
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-xs);
+  color: var(--pp-spectrum-cyan);
+}
+
+/* ── Card ───────────────────────────────────────────────────── */
 .opt-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 18px 20px;
-  margin-bottom: 14px;
+  position: relative;
+  background: var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-lg);
+  padding: 20px 22px;
+  margin-bottom: 12px;
+  transition: border-color var(--pp-dur-fast) var(--pp-ease),
+              box-shadow var(--pp-dur-fast) var(--pp-ease);
 }
 
+.opt-card:hover {
+  border-color: var(--pp-border-strong);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+
+/* ── Section title ──────────────────────────────────────────── */
+.opt-section-title {
+  font-family: var(--pp-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: var(--pp-text);
+  margin: 0 0 10px;
+}
+
+/* ── Field ──────────────────────────────────────────────────── */
 .opt-field {
   display: flex;
   flex-direction: column;
@@ -44,198 +124,215 @@ body {
   margin-bottom: 14px;
 }
 
-.opt-label { font-size: 13px; font-weight: 600; }
-.opt-hint { font-size: 12px; color: #6b7280; }
+.opt-field:last-child { margin-bottom: 0; }
 
+.opt-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--pp-text);
+}
+
+.opt-hint {
+  font-size: 12px;
+  color: var(--pp-text-muted);
+  line-height: 1.5;
+}
+
+/* ── Input ──────────────────────────────────────────────────── */
+.opt-input {
+  padding: 8px 12px;
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  color: var(--pp-text);
+  font-family: var(--pp-font-mono);
+  font-size: 12.5px;
+  outline: none;
+  transition: border-color var(--pp-dur-fast) var(--pp-ease),
+              box-shadow var(--pp-dur-fast) var(--pp-ease);
+  width: 100%;
+  /* `min-width: 0` is critical inside flex/grid parents.  Without it,
+   * an <input>'s intrinsic min-content width (driven by its
+   * `placeholder` text or its current `value`) leaks out and forces
+   * the parent column wider than its declared track — which is what
+   * makes the page width "jump" when LLM Configuration expands and
+   * reveals inputs with long URL placeholders. */
+  min-width: 0;
+  /* For <select>: long <option> labels can also drive intrinsic
+   * width.  `text-overflow: ellipsis` on the closed select keeps the
+   * box width predictable in browsers that honour it. */
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+/* Prevent <select> dropdown options from expanding the closed control. */
+select.opt-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--pp-text-subtle) 50%),
+    linear-gradient(135deg, var(--pp-text-subtle) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+
+.opt-input:focus {
+  border-color: var(--pp-accent);
+  box-shadow: 0 0 0 3px rgba(77,150,255,0.15);
+}
+
+.opt-input::placeholder { color: var(--pp-text-subtle); }
+
+/* ── Checkbox ───────────────────────────────────────────────── */
 .opt-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   user-select: none;
+  color: var(--pp-text);
 }
+
 .opt-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   margin: 0;
   cursor: pointer;
+  accent-color: var(--pp-accent);
 }
 
-.opt-input {
-  padding: 8px 10px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: ui-monospace, Menlo, monospace;
+/* ── Row ────────────────────────────────────────────────────── */
+.opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.opt-row { display: flex; align-items: center; gap: 8px; }
-
-.opt-btn {
-  padding: 8px 14px;
-  border: 1px solid #d0d7de;
-  background: #f6f8fa;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-}
-.opt-btn.primary { background: #2563eb; border-color: #2563eb; color: white; }
-
-.opt-status-ok { color: #166534; font-size: 12px; }
-.opt-status-err { color: #991b1b; font-size: 12px; }
-
-a.opt-link {
-  color: #2563eb;
-  text-decoration: none;
-  cursor: pointer;
-}
-a.opt-link:hover { text-decoration: underline; }
-
-.opt-section-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 8px;
-}
-
+/* ── Grid ───────────────────────────────────────────────────── */
 .opt-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0 16px;
 }
 
+/* ── Buttons ────────────────────────────────────────────────── */
+.opt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--pp-radius);
+  border: 1px solid var(--pp-border);
+  background: var(--pp-surface);
+  color: var(--pp-text);
+  font-family: var(--pp-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--pp-dur-fast) var(--pp-ease);
+}
+
+.opt-btn:hover {
+  background: var(--pp-surface-alt);
+  border-color: var(--pp-border-strong);
+}
+
+.opt-btn.primary {
+  background: var(--pp-accent);
+  border-color: var(--pp-accent);
+  color: var(--pp-accent-ink);
+  box-shadow: var(--pp-glow-accent);
+}
+
+.opt-btn.primary:hover {
+  background: var(--pp-accent-hover);
+  border-color: var(--pp-accent-hover);
+  box-shadow: 0 0 24px rgba(77,150,255,0.5);
+}
+
 .opt-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: default;
+  pointer-events: none;
 }
 
-.opt-sub code {
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 12px;
-  padding: 0 4px;
-  background: #eef2f7;
-  border-radius: 3px;
+/* ── Status text ────────────────────────────────────────────── */
+.opt-status-ok  { color: var(--pp-spectrum-green);  font-size: 12px; font-family: var(--pp-font-mono); }
+.opt-status-err { color: var(--pp-spectrum-red);    font-size: 12px; font-family: var(--pp-font-mono); }
+
+/* ── Link ───────────────────────────────────────────────────── */
+a.opt-link {
+  color: var(--pp-accent);
+  text-decoration: none;
+  transition: color var(--pp-dur-fast) var(--pp-ease),
+              text-shadow var(--pp-dur-fast) var(--pp-ease);
 }
 
-@media (prefers-color-scheme: dark) {
-  .opt-sub code { background: #23262c; }
+a.opt-link:hover {
+  color: var(--pp-accent-hover);
+  text-shadow: 0 0 10px rgba(77,150,255,0.4);
+  text-decoration: underline;
 }
 
-/* ---------------- details cards ---------------- */
+/* ── Details / collapsible ──────────────────────────────────── */
 .opt-details > summary {
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
+  font-family: var(--pp-font-display);
   list-style: none;
   padding: 2px 0;
   user-select: none;
+  color: var(--pp-text);
 }
+
 .opt-details > summary::-webkit-details-marker { display: none; }
+
 .opt-details > summary::before {
   content: '▸';
   display: inline-block;
   width: 14px;
-  color: #6b7280;
-  transition: transform 0.15s ease;
+  color: var(--pp-text-subtle);
+  transition: transform 0.15s var(--pp-ease);
 }
+
 .opt-details[open] > summary::before { transform: rotate(90deg); }
-.opt-details[open] > summary { margin-bottom: 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; }
-@media (prefers-color-scheme: dark) {
-  .opt-details[open] > summary { border-bottom-color: #2a2d33; }
+
+.opt-details[open] > summary {
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--pp-border);
+  padding-bottom: 8px;
+  color: var(--pp-spectrum-blue);
 }
 
-/* ---------------- wizard ---------------- */
-.wiz-card { padding: 20px 22px; }
-.wiz-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.wiz-step { font-size: 12px; color: #6b7280; }
-.wiz-progress { display: flex; gap: 6px; margin-bottom: 16px; }
-.wiz-dot {
-  width: 28px; height: 4px; border-radius: 2px;
-  background: #e5e7eb;
-}
-.wiz-dot.on { background: #2563eb; }
-@media (prefers-color-scheme: dark) {
-  .wiz-dot { background: #2a2d33; }
-}
-.wiz-step-body { display: flex; flex-direction: column; gap: 12px; }
-.wiz-probe { font-size: 14px; }
-.wiz-help { background: #f6f8fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; }
-.wiz-pre {
-  font-family: ui-monospace, Menlo, monospace;
-  font-size: 12px;
-  background: #0f1115;
-  color: #e6e6e6;
-  padding: 10px 12px;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 6px 0;
-}
-@media (prefers-color-scheme: dark) {
-  .wiz-help { background: #1a1b1e; border-color: #2a2d33; }
-}
-
-.wiz-provider-list { display: flex; flex-direction: column; gap: 8px; }
-.wiz-provider {
-  display: flex; gap: 10px; align-items: flex-start;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.1s ease, background 0.1s ease;
-}
-.wiz-provider:hover { border-color: #c9d1da; }
-.wiz-provider.active { border-color: #2563eb; background: #eff4ff; }
-@media (prefers-color-scheme: dark) {
-  .wiz-provider { border-color: #2a2d33; }
-  .wiz-provider.active { background: #1a2240; border-color: #3b82f6; }
-}
-.wiz-provider input[type='radio'] { margin-top: 3px; }
-.wiz-provider-main { flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.wiz-provider-label { font-weight: 600; font-size: 14px; }
-.wiz-provider-desc { font-size: 12px; color: #6b7280; }
-.wiz-provider-meta { font-size: 11px; color: #6b7280; }
-.wiz-provider-meta code {
-  font-family: ui-monospace, Menlo, monospace;
-  background: #eef2f7; padding: 1px 5px; border-radius: 3px;
-}
-@media (prefers-color-scheme: dark) {
-  .wiz-provider-meta code { background: #23262c; }
-}
-.wiz-tag {
-  display: inline-block;
-  font-size: 10px; font-weight: 500;
-  padding: 1px 6px;
-  margin-left: 6px;
-  border-radius: 10px;
-  background: #eef2f7;
-  color: #475569;
-  vertical-align: middle;
-}
-.wiz-tag.ok { background: #dcfce7; color: #166534; }
-@media (prefers-color-scheme: dark) {
-  .wiz-tag { background: #23262c; color: #9ca3af; }
-  .wiz-tag.ok { background: #14532d; color: #bbf7d0; }
-}
-
-/* ---------------- tag chip input ---------------- */
+/* ── Tag chip input ─────────────────────────────────────────── */
 .opt-tag-list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
+
 .opt-tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
   border-radius: 4px;
-  font-size: 12px;
-  font-family: ui-monospace, Menlo, monospace;
-  background: #eef2f7;
-  color: #475569;
+  font-size: 11.5px;
+  font-family: var(--pp-font-mono);
+  background: rgba(77,150,255,0.10);
+  color: var(--pp-spectrum-blue);
+  border: 1px solid rgba(77,150,255,0.22);
 }
+
 .opt-tag-remove {
   border: none;
   background: none;
@@ -243,20 +340,237 @@ a.opt-link:hover { text-decoration: underline; }
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--pp-text-subtle);
+  transition: color var(--pp-dur-fast) var(--pp-ease);
 }
-.opt-tag-remove:hover { color: #991b1b; }
+
+.opt-tag-remove:hover { color: var(--pp-spectrum-red); }
+
 .opt-tag-input {
   padding: 4px 8px;
-  border: 1px solid #d0d7de;
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
   border-radius: 4px;
-  font-size: 12px;
-  font-family: ui-monospace, Menlo, monospace;
+  color: var(--pp-text);
+  font-size: 11.5px;
+  font-family: var(--pp-font-mono);
   width: 120px;
   outline: none;
+  transition: border-color var(--pp-dur-fast) var(--pp-ease);
 }
-.opt-tag-input:focus { border-color: #2563eb; }
-@media (prefers-color-scheme: dark) {
-  .opt-tag-chip { background: #23262c; color: #9ca3af; }
-  .opt-tag-input { background: #0f1115; color: #e6e6e6; border-color: #2a2d33; }
+
+.opt-tag-input:focus {
+  border-color: var(--pp-accent);
+  box-shadow: 0 0 0 2px rgba(77,150,255,0.15);
+}
+
+/* ── Wizard ─────────────────────────────────────────────────── */
+.wiz-card { padding: 22px 24px; }
+
+.wiz-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.wiz-step {
+  font-family: var(--pp-font-mono);
+  font-size: 11px;
+  color: var(--pp-text-subtle);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.wiz-progress {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 18px;
+}
+
+.wiz-dot {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--pp-border);
+  transition: background var(--pp-dur) var(--pp-ease);
+}
+
+.wiz-dot.on {
+  background: var(--pp-spectrum-grad);
+  background-size: 200% 100%;
+}
+
+.wiz-step-body { display: flex; flex-direction: column; gap: 12px; }
+
+.wiz-probe { font-size: 14px; color: var(--pp-text-muted); }
+
+.wiz-help {
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  padding: 12px 14px;
+}
+
+.wiz-pre {
+  font-family: var(--pp-font-mono);
+  font-size: 12px;
+  background: var(--pp-bg-deep);
+  color: var(--pp-text);
+  padding: 10px 14px;
+  border-radius: var(--pp-radius);
+  border: 1px solid var(--pp-border);
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+/* ── Provider selector ──────────────────────────────────────── */
+.wiz-provider-list { display: flex; flex-direction: column; gap: 8px; }
+
+.wiz-provider {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  cursor: pointer;
+  transition: border-color var(--pp-dur-fast) var(--pp-ease),
+              background var(--pp-dur-fast) var(--pp-ease);
+}
+
+.wiz-provider:hover {
+  border-color: var(--pp-border-strong);
+  background: var(--pp-surface-alt);
+}
+
+.wiz-provider.active {
+  border-color: rgba(77,150,255,0.55);
+  background: rgba(77,150,255,0.08);
+  box-shadow: 0 0 14px rgba(77,150,255,0.12);
+}
+
+.wiz-provider input[type='radio'] {
+  margin-top: 3px;
+  accent-color: var(--pp-accent);
+}
+
+.wiz-provider-main { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+
+.wiz-provider-label {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--pp-text);
+}
+
+.wiz-provider-desc {
+  font-size: 12px;
+  color: var(--pp-text-muted);
+  line-height: 1.45;
+}
+
+.wiz-provider-meta {
+  font-size: 11px;
+  color: var(--pp-text-subtle);
+}
+
+.wiz-provider-meta code {
+  font-family: var(--pp-font-mono);
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--pp-spectrum-cyan);
+}
+
+/* ── Inline model editor (active provider only) ─────────────
+ * Matches the wider Deep Space Atlas language: sunk surface
+ * input + spectrum-cyan focus ring + mono-typed model names so
+ * users can pick from the datalist or freely type any custom
+ * model identifier without leaving the wizard.                */
+.wiz-model-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--pp-border);
+}
+
+.wiz-model-label {
+  font-family: var(--pp-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: var(--pp-text-subtle);
+}
+
+.wiz-model-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 12px;
+  background: var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  color: var(--pp-spectrum-cyan);
+  font-family: var(--pp-font-mono);
+  font-size: 12.5px;
+  outline: none;
+  text-overflow: ellipsis;
+  transition: border-color var(--pp-dur-fast) var(--pp-ease),
+              box-shadow var(--pp-dur-fast) var(--pp-ease);
+}
+
+.wiz-model-input::placeholder {
+  color: var(--pp-text-subtle);
+  opacity: 0.7;
+}
+
+.wiz-model-input:focus {
+  border-color: var(--pp-accent);
+  box-shadow: 0 0 0 3px rgba(77, 150, 255, 0.15);
+  color: var(--pp-text);
+}
+
+.wiz-model-hint {
+  font-size: 11px;
+  color: var(--pp-text-subtle);
+  line-height: 1.4;
+}
+
+.wiz-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  margin-left: 6px;
+  border-radius: 10px;
+  background: var(--pp-surface-sunk);
+  color: var(--pp-text-subtle);
+  border: 1px solid var(--pp-border);
+  vertical-align: middle;
+  font-family: var(--pp-font-mono);
+  letter-spacing: 0.4px;
+}
+
+.wiz-tag.ok {
+  background: var(--pp-success-bg);
+  color: var(--pp-spectrum-green);
+  border-color: rgba(107,203,119,0.3);
+}
+
+/* ── Scrollbar & selection ──────────────────────────────────── */
+::selection { background: rgba(77,150,255,0.28); color: var(--pp-text); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--pp-border-strong) transparent; }
+*::-webkit-scrollbar { width: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--pp-border-strong); border-radius: 999px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--pp-text-subtle); }
+
+:where(button, a, [role='button'], input, select):focus-visible {
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 2px;
+  border-radius: var(--pp-radius-xs);
 }

@@ -1,0 +1,362 @@
+/*
+ * PaperPrism — Deep Space Atlas design tokens
+ * -------------------------------------------
+ * A dark-first, prism-spectrum, observatory-grade aesthetic.
+ * Background: deep indigo/violet with faint stars and a 1px coordinate grid.
+ * Spectrum: full visible-light palette (red → violet) used semantically.
+ * Type: Manrope display, Inter body, JetBrains Mono for IDs.
+ *
+ * Atlas (the 2D semantic map) is the lead. Every other surface borrows
+ * its night-sky language: dark voids, sharp typographic light, prism
+ * accents reserved for moments that matter.
+ *
+ * Imported FIRST by every entrypoint; per-page styles layer on top.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  color-scheme: dark light;
+
+  /* ---------- Typography ---------- */
+  --pp-font-display: 'Manrope', 'Inter Display', -apple-system, system-ui, sans-serif;
+  --pp-font-body:    'Inter', 'IBM Plex Sans', -apple-system, system-ui, sans-serif;
+  --pp-font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ---------- Spacing scale (4px base) ---------- */
+  --pp-space-1: 4px;
+  --pp-space-2: 8px;
+  --pp-space-3: 12px;
+  --pp-space-4: 16px;
+  --pp-space-5: 20px;
+  --pp-space-6: 24px;
+  --pp-space-8: 32px;
+  --pp-space-10: 40px;
+  --pp-space-12: 48px;
+
+  /* ---------- Radius ---------- */
+  --pp-radius-xs: 3px;
+  --pp-radius-sm: 6px;
+  --pp-radius:    10px;
+  --pp-radius-lg: 14px;
+  --pp-radius-xl: 20px;
+
+  /* ---------- Motion ---------- */
+  --pp-ease:        cubic-bezier(0.16, 1, 0.3, 1);
+  --pp-ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --pp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --pp-dur-fast:    120ms;
+  --pp-dur:         220ms;
+  --pp-dur-slow:    420ms;
+
+  /* ============================================================
+   * SPECTRUM — the prism palette (always available, theme-stable)
+   * Use these for status, categories, and Atlas layers.
+   * ============================================================ */
+  --pp-spectrum-red:    #FF6B6B;
+  --pp-spectrum-orange: #FFA552;
+  --pp-spectrum-yellow: #FFD93D;
+  --pp-spectrum-green:  #6BCB77;
+  --pp-spectrum-cyan:   #4ECDC4;
+  --pp-spectrum-blue:   #4D96FF;
+  --pp-spectrum-violet: #B084CC;
+
+  /* The signature gradient — used for wordmark dispersion, hero strokes,
+   * accent dividers, "Prism" highlights. Matches the visible-light order. */
+  --pp-spectrum-grad: linear-gradient(
+    90deg,
+    var(--pp-spectrum-red)    0%,
+    var(--pp-spectrum-orange) 16%,
+    var(--pp-spectrum-yellow) 33%,
+    var(--pp-spectrum-green)  50%,
+    var(--pp-spectrum-cyan)   66%,
+    var(--pp-spectrum-blue)   83%,
+    var(--pp-spectrum-violet) 100%
+  );
+
+  /* Conic version — for haloes and focal-point dispersions */
+  --pp-spectrum-conic: conic-gradient(
+    from 180deg at 50% 50%,
+    var(--pp-spectrum-violet),
+    var(--pp-spectrum-blue),
+    var(--pp-spectrum-cyan),
+    var(--pp-spectrum-green),
+    var(--pp-spectrum-yellow),
+    var(--pp-spectrum-orange),
+    var(--pp-spectrum-red),
+    var(--pp-spectrum-violet)
+  );
+
+  /* ============================================================
+   * DEEP SPACE — default (dark) theme
+   * ============================================================ */
+
+  /* Surfaces — deep indigo void shading into violet at the edges */
+  --pp-bg:           #0A0E1A;     /* page void */
+  --pp-bg-deep:      #06080F;     /* deepest pocket — modal scrim, behind atlas */
+  --pp-surface:      #141828;     /* card / panel */
+  --pp-surface-alt:  #1C1F33;     /* hover / chip */
+  --pp-surface-sunk: #0F1320;     /* inset / inputs */
+
+  /* Borders — slate-blue, never pure gray */
+  --pp-border:        #252A45;
+  --pp-border-strong: #353B5F;
+  --pp-divider:       #1E2238;
+
+  /* Text — soft photonic white through to faint nebula gas */
+  --pp-text:        #E8ECFF;
+  --pp-text-muted:  #8B95B8;
+  --pp-text-subtle: #5A6485;
+
+  /* Primary accent — clear-sky blue (the Atlas signature) */
+  --pp-accent:        var(--pp-spectrum-blue);
+  --pp-accent-hover:  #6BA8FF;
+  --pp-accent-soft:   rgba(77, 150, 255, 0.16);
+  --pp-accent-ghost:  rgba(77, 150, 255, 0.08);
+  --pp-accent-ink:    #06080F;        /* text on accent button */
+
+  /* Secondary — violet / Topic colour */
+  --pp-secondary:      var(--pp-spectrum-violet);
+  --pp-secondary-soft: rgba(176, 132, 204, 0.16);
+  --pp-secondary-ink:  #06080F;
+
+  /* Semantic mapped to spectrum */
+  --pp-success:    var(--pp-spectrum-green);
+  --pp-success-bg: rgba(107, 203, 119, 0.14);
+  --pp-warn:       var(--pp-spectrum-yellow);
+  --pp-warn-bg:    rgba(255, 217, 61, 0.14);
+  --pp-danger:     var(--pp-spectrum-red);
+  --pp-danger-bg:  rgba(255, 107, 107, 0.14);
+  --pp-danger-border: rgba(255, 107, 107, 0.38);
+  --pp-info:       var(--pp-spectrum-cyan);
+  --pp-info-bg:    rgba(78, 205, 196, 0.14);
+
+  /* Shadows — deep black, no warm tint, sometimes coloured */
+  --pp-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --pp-shadow-sm:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.45);
+  --pp-shadow-md:
+    0 4px 14px rgba(0, 0, 0, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.4);
+  --pp-shadow-lg:
+    0 18px 40px rgba(0, 0, 0, 0.6),
+    0 6px 14px rgba(0, 0, 0, 0.45);
+
+  /* Glow — coloured halo that wraps interactive accents */
+  --pp-glow-accent:  0 0 24px rgba(77, 150, 255, 0.45),
+                     0 0 1px  rgba(77, 150, 255, 0.6);
+  --pp-glow-success: 0 0 18px rgba(107, 203, 119, 0.5);
+  --pp-glow-warn:    0 0 18px rgba(255, 217, 61, 0.5);
+  --pp-glow-danger:  0 0 18px rgba(255, 107, 107, 0.5);
+
+  /* ============================================================
+   * STARFIELD — barely-visible pinpoints, whisper-level presence.
+   * Just 4 dots at very low opacity so they don't distract.
+   * The coordinate grid + nebula already carry the depth.
+   * ============================================================ */
+  --pp-starfield:
+    radial-gradient(0.8px 0.8px at 18% 12%, rgba(255, 255, 255, 0.14) 50%, transparent 100%),
+    radial-gradient(0.8px 0.8px at 74% 38%, rgba(255, 255, 255, 0.11) 50%, transparent 100%),
+    radial-gradient(0.8px 0.8px at 40% 72%, rgba(255, 255, 255, 0.12) 50%, transparent 100%),
+    radial-gradient(0.8px 0.8px at 85% 80%, rgba(255, 255, 255, 0.10) 50%, transparent 100%);
+
+  /* The deep nebula wash — two slow radial gradients over the void */
+  --pp-nebula:
+    radial-gradient(900px 600px at 12% -10%, rgba(77, 150, 255, 0.18), transparent 60%),
+    radial-gradient(700px 500px at 105% 110%, rgba(176, 132, 204, 0.15), transparent 65%),
+    radial-gradient(1200px 800px at 50% 50%, rgba(14, 10, 31, 0.7), var(--pp-bg) 75%);
+
+  /* The 1px coordinate grid — superimposed on every page, ultra low contrast */
+  --pp-grid:
+    linear-gradient(to right,  rgba(139, 149, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(139, 149, 184, 0.06) 1px, transparent 1px);
+  --pp-grid-size: 56px 56px;
+}
+
+/* ============================================================
+ * LIGHT THEME — Day-mode Atlas (rare, but supported)
+ * Same spectrum, light photographic-paper background.
+ * ============================================================ */
+@media (prefers-color-scheme: light) {
+  :root {
+    --pp-bg:           #F4F6FB;
+    --pp-bg-deep:      #E8ECF5;
+    --pp-surface:      #FFFFFF;
+    --pp-surface-alt:  #EDF1F8;
+    --pp-surface-sunk: #E4E9F2;
+
+    --pp-border:        #D7DCE8;
+    --pp-border-strong: #BBC2D2;
+    --pp-divider:       #E2E6EE;
+
+    --pp-text:        #0F1424;
+    --pp-text-muted:  #515979;
+    --pp-text-subtle: #8089A4;
+
+    --pp-accent:        #2563EB;
+    --pp-accent-hover:  #1D4ED8;
+    --pp-accent-soft:   rgba(37, 99, 235, 0.10);
+    --pp-accent-ghost:  rgba(37, 99, 235, 0.06);
+    --pp-accent-ink:    #FFFFFF;
+
+    --pp-secondary:      #8B5CF6;
+    --pp-secondary-soft: rgba(139, 92, 246, 0.10);
+    --pp-secondary-ink:  #FFFFFF;
+
+    --pp-success:    #16A34A;
+    --pp-success-bg: rgba(22, 163, 74, 0.10);
+    --pp-warn:       #D97706;
+    --pp-warn-bg:    rgba(217, 119, 6, 0.10);
+    --pp-danger:     #DC2626;
+    --pp-danger-bg:  rgba(220, 38, 38, 0.10);
+    --pp-danger-border: rgba(220, 38, 38, 0.30);
+    --pp-info:       #0891B2;
+    --pp-info-bg:    rgba(8, 145, 178, 0.10);
+
+    --pp-shadow-xs: 0 1px 1px rgba(15, 20, 36, 0.04);
+    --pp-shadow-sm:
+      0 1px 2px rgba(15, 20, 36, 0.06),
+      0 1px 3px rgba(15, 20, 36, 0.08);
+    --pp-shadow-md:
+      0 4px 12px rgba(15, 20, 36, 0.08),
+      0 2px 4px rgba(15, 20, 36, 0.05);
+    --pp-shadow-lg:
+      0 14px 32px rgba(15, 20, 36, 0.12),
+      0 4px 10px rgba(15, 20, 36, 0.06);
+
+    --pp-glow-accent:  0 0 18px rgba(37, 99, 235, 0.25);
+    --pp-glow-success: 0 0 14px rgba(22, 163, 74, 0.3);
+    --pp-glow-warn:    0 0 14px rgba(217, 119, 6, 0.3);
+    --pp-glow-danger:  0 0 14px rgba(220, 38, 38, 0.3);
+
+    /* Light mode loses the starfield — feels wrong on bright paper.
+     * Keep nebula very faint, drop the stars to none. */
+    --pp-starfield: none;
+    --pp-nebula:
+      radial-gradient(800px 500px at 8% -5%, rgba(37, 99, 235, 0.06), transparent 60%),
+      radial-gradient(700px 500px at 102% 105%, rgba(139, 92, 246, 0.05), transparent 65%);
+    --pp-grid:
+      linear-gradient(to right,  rgba(15, 20, 36, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15, 20, 36, 0.04) 1px, transparent 1px);
+  }
+}
+
+/* ============================================================
+ * Reset & globals
+ * ============================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--pp-font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pp-text);
+  background-color: var(--pp-bg);
+  background-image: var(--pp-nebula);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+/* The starfield + grid float above the body bg, below content.
+ * Apply to body via a ::before pseudo-element so any page inherits it. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--pp-starfield), var(--pp-grid);
+  background-size: 600px 600px, var(--pp-grid-size);
+  background-attachment: fixed;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Reusable wordmark — "Paper" in solid text colour, "Prism" with the
+ * spectrum gradient. Used by popup hero, options header, dashboard nav. */
+.pp-wordmark {
+  font-family: var(--pp-font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  display: inline;
+}
+
+.pp-wordmark .pp-prism {
+  background: var(--pp-spectrum-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  /* Background size larger than text so motion feels alive */
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  transition: background-position var(--pp-dur-slow) var(--pp-ease-out);
+}
+
+.pp-wordmark:hover .pp-prism,
+*:hover > .pp-wordmark .pp-prism {
+  background-position: 100% 50%;
+}
+
+/* Reusable: a coloured glow halo behind any chip/dot, sized to its parent.
+ * Apply by adding `data-spectrum="blue"` (etc) to any element with class
+ * `.pp-glow`. */
+.pp-glow {
+  position: relative;
+}
+.pp-glow::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  background: currentColor;
+  filter: blur(10px);
+  opacity: 0.35;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Focus ring — bright accent + accent-coloured outer glow */
+:where(button, a, [role='button'], input, textarea, select):focus-visible {
+  outline: 2px solid var(--pp-accent);
+  outline-offset: 2px;
+  border-radius: var(--pp-radius-xs);
+  box-shadow: var(--pp-glow-accent);
+}
+
+/* Scrollbars — slim, on-brand */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pp-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--pp-border-strong);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--pp-text-subtle);
+}
+
+/* Selection — keep the prism alive even in copied text */
+::selection {
+  background: rgba(77, 150, 255, 0.32);
+  color: var(--pp-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

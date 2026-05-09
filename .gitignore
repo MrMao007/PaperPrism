@@ -121,6 +121,10 @@ llm.*.local.yaml
 # Qoder workspace cache (skills, agents, references)
 .qoder/
 
+# Aone Copilot agent workspace (skills, session state)
+.agents/
+skills-lock.json
+
 # uv lock file (agent is a library; lock belongs to the consumer)
 agent/uv.lock
 

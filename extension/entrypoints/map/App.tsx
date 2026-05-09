@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { fetchMapData, fetchLlmConfig, saveLlmConfig, ingestFromFeed, type MapData } from '../../lib/agent';
 import { groupedCategories, type ArxivCategory } from '../../lib/arxivCategories';
 import { useDialog } from '../../lib/dialog';
+import { Icon } from '../../lib/icons';
 import CanvasMap from './CanvasMap';
 import PointDrawer from './PointDrawer';
 
@@ -167,15 +168,27 @@ export default function MapApp() {
       <CanvasMap data={data} selectedId={selected?.arxivId ?? null} onSelectPoint={handleSelectPoint} />
 
       <div className="map-header">
-        <h1>PaperPrism Atlas</h1>
-        <a href={chrome.runtime.getURL('dashboard.html')}>{'\u2190 Dashboard'}</a>
+        <div className="map-hero-brand">
+          <img className="map-hero-logo" src="/icon/128.png" alt="PaperPrism" />
+          <div className="map-hero-text">
+            <div className="map-hero-title">
+              Paper<span className="map-hero-prism">Prism</span>
+              <span className="map-hero-atlas">Atlas</span>
+            </div>
+            <div className="map-hero-subtitle">Local Atlas · 127.0.0.1</div>
+          </div>
+        </div>
+        <a href={chrome.runtime.getURL('dashboard.html')} className="map-header-link">
+          <Icon name="chevron-left" size={12} aria-hidden />
+          Dashboard
+        </a>
         <button
           type="button"
           className={`map-settings-btn ${showSettings ? 'active' : ''}`}
           onClick={() => setShowSettings((v) => !v)}
           title="Configure feed categories"
         >
-          {'\u2699'}
+          <Icon name="settings" size={15} aria-hidden />
         </button>
       </div>
 

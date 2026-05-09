@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDialog } from '@/lib/dialog';
+import { Icon } from '@/lib/icons';
 import {
   deletePaper,
   editPaperTags,
@@ -85,7 +86,15 @@ function Header({
 
   return (
     <header className="db-header">
-      <h1 className="db-title">PaperPrism</h1>
+      <div className="db-hero-brand">
+        <img className="db-hero-logo" src="/icon/128.png" alt="PaperPrism" />
+        <div className="db-hero-text">
+          <h1 className="db-title">
+            Paper<span className="db-title-prism">Prism</span>
+          </h1>
+          <div className="db-hero-subtitle">Local Atlas · 127.0.0.1</div>
+        </div>
+      </div>
       <nav className="db-nav">
         <a
           href="#/"
@@ -110,12 +119,14 @@ function Header({
       </nav>
       <button
         type="button"
-        className="db-settings-btn"
+        className="pp-btn db-header-settings"
+        data-variant="ghost"
+        data-size="sm"
         onClick={openSettings}
         title="Open extension settings"
         aria-label="Open settings"
       >
-        <span className="db-settings-icon" aria-hidden="true">⚙︎</span>
+        <Icon name="settings" />
         <span className="db-settings-label">Settings</span>
       </button>
       <span className={`db-badge ${agentOk === true ? 'ok' : agentOk === false ? 'err' : ''}`}>
@@ -426,17 +437,31 @@ function PapersPane() {
         />
         {filterTag && (
           <span className="db-filter-chip">
+            <Icon name="filter" size={11} aria-hidden />
             tag: {filterTag}
-            <button type="button" onClick={() => setFilterTag('')}>×</button>
+            <button
+              type="button"
+              className="pp-btn db-filter-chip-clear"
+              data-variant="subtle"
+              data-size="sm"
+              data-shape="round"
+              onClick={() => setFilterTag('')}
+              aria-label="Clear tag filter"
+            >
+              <Icon name="x" size={12} />
+            </button>
           </span>
         )}
         <button
           type="button"
-          className="db-import-btn"
+          className="pp-btn"
+          data-variant="primary"
+          data-size="md"
           onClick={pickFolder}
           disabled={importState.running}
           title="Import all PDFs from a local folder"
         >
+          <Icon name="folder-plus" />
           {importState.running ? 'Importing...' : 'Import folder'}
         </button>
         <input
@@ -454,17 +479,51 @@ function PapersPane() {
           <span className="db-bulkbar-info">
             {selectedIds.size} paper{selectedIds.size === 1 ? '' : 's'} selected
           </span>
-          <button type="button" className="db-import-btn" onClick={() => setAutoTagOpen(true)}>
+          <button
+            type="button"
+            className="pp-btn"
+            data-variant="accent"
+            data-size="sm"
+            onClick={() => setAutoTagOpen(true)}
+            title="Cluster selected papers into a new topic"
+          >
+            <Icon name="layers" />
             Create topic
           </button>
-          <button type="button" className="db-import-close" onClick={clearSelection}>
-            Clear selection
+          <button
+            type="button"
+            className="pp-btn"
+            data-variant="ghost"
+            data-size="sm"
+            onClick={clearSelection}
+            aria-label="Clear selection"
+          >
+            <Icon name="x" />
+            Clear
           </button>
         </div>
       )}
 
       <div className="db-table-wrap">
         <table className="db-table">
+          {/*
+           * Explicit column widths via <colgroup> are MANDATORY here.
+           * The table uses `table-layout: fixed`, which means the browser
+           * decides each column's width from the first row.  Without
+           * <colgroup>, Chrome computes thead and tbody column widths
+           * independently and they end up cyclically shifted by one
+           * column — the dashboard's classic "header / body misalignment"
+           * bug.  Verified live with chrome-devtools MCP on a 1440px
+           * viewport (2026-05-08).  Do NOT remove this colgroup without
+           * also dropping `table-layout: fixed` from `.db-table`.
+           */}
+          <colgroup>
+            <col className="col-check" />
+            <col className="col-title" />
+            <col className="col-abstract" />
+            <col className="col-tags" />
+            <col className="col-actions" />
+          </colgroup>
           <thead>
             <tr>
               <th className="db-th db-th-check">
@@ -507,14 +566,32 @@ function PapersPane() {
       </div>
 
       <div className="db-pagination">
-        <button className="db-page-btn" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
-          Previous
+        <button
+          type="button"
+          className="pp-btn"
+          data-variant="ghost"
+          data-size="sm"
+          disabled={page === 0}
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          aria-label="Previous page"
+        >
+          <Icon name="chevron-left" />
+          Prev
         </button>
         <span className="db-page-info">
           Page {page + 1} of {totalPages} ({total} papers)
         </span>
-        <button className="db-page-btn" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+        <button
+          type="button"
+          className="pp-btn"
+          data-variant="ghost"
+          data-size="sm"
+          disabled={page + 1 >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          aria-label="Next page"
+        >
           Next
+          <Icon name="chevron-right" />
         </button>
       </div>
 
@@ -640,10 +717,30 @@ function PaperRow({
         <span className="db-arxiv-id">{paper.full_id}</span>
         <div className="db-expand-meta">
           {paper.abs_url && (
-            <a href={paper.abs_url} target="_blank" rel="noreferrer" className="db-link" onClick={(e) => e.stopPropagation()}>arxiv</a>
+            <a
+              href={paper.abs_url}
+              target="_blank"
+              rel="noreferrer"
+              className="db-link"
+              onClick={(e) => e.stopPropagation()}
+              title="Open arxiv abstract page"
+            >
+              <Icon name="external-link" size={11} aria-hidden />
+              arxiv
+            </a>
           )}
           {paper.code_url && (
-            <a href={paper.code_url} target="_blank" rel="noreferrer" className="db-link" onClick={(e) => e.stopPropagation()}>code</a>
+            <a
+              href={paper.code_url}
+              target="_blank"
+              rel="noreferrer"
+              className="db-link"
+              onClick={(e) => e.stopPropagation()}
+              title="Open code repository"
+            >
+              <Icon name="external-link" size={11} aria-hidden />
+              code
+            </a>
           )}
         </div>
       </td>
@@ -656,24 +753,38 @@ function PaperRow({
         <InlineTagEditor paper={paper} onEditTags={onEditTags} onFilterByTag={onFilterByTag} />
       </td>
       <td className="db-td actions-cell">
-        <button
-          type="button"
-          className="db-pdf-btn"
-          disabled={pdfLoading}
-          onClick={() => onOpenPdf(paper)}
-          title="Open PDF in new tab"
-        >
-          {pdfLoading ? '...' : 'PDF'}
-        </button>
-        <button
-          type="button"
-          className="db-delete-btn"
-          disabled={deleting}
-          onClick={() => onDelete(paper)}
-          title="Delete paper (DB row + vault files)"
-        >
-          {deleting ? '...' : 'Delete'}
-        </button>
+        <div className="pp-btn-group">
+          <button
+            type="button"
+            className="pp-btn"
+            data-variant="ghost"
+            data-size="sm"
+            data-shape="square"
+            disabled={pdfLoading}
+            onClick={() => onOpenPdf(paper)}
+            title="Preview PDF in new tab"
+            aria-label={pdfLoading ? 'Opening preview' : 'Preview PDF'}
+          >
+            {pdfLoading
+              ? <span className="pp-btn-spinner" aria-hidden />
+              : <Icon name="eye" />}
+          </button>
+          <button
+            type="button"
+            className="pp-btn"
+            data-variant="danger"
+            data-size="sm"
+            data-shape="square"
+            disabled={deleting}
+            onClick={() => onDelete(paper)}
+            title="Delete paper (DB row + vault files)"
+            aria-label={deleting ? 'Deleting paper' : 'Delete paper'}
+          >
+            {deleting
+              ? <span className="pp-btn-spinner" aria-hidden />
+              : <Icon name="trash" />}
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -739,7 +850,7 @@ function InlineTagEditor({
               disabled={busy}
               aria-label={`Remove tag ${t.name}`}
             >
-              ×
+              <Icon name="x" size={10} />
             </button>
           </span>
         ))}

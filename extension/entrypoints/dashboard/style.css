@@ -1,99 +1,96 @@
+/*
+ * Dashboard — Deep Space Atlas
+ * ----------------------------
+ * Local design tokens (shadowing whatever lib/theme.css provides) so the
+ * dashboard renders consistently in dark Deep Space mode regardless of
+ * the user's system colour scheme. Structure / class names below are
+ * preserved verbatim from the original layout — only the token values
+ * and the body background were touched.
+ */
 :root {
-  color-scheme: light dark;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
-    'Helvetica Neue', sans-serif;
+  color-scheme: dark;
+  font-family: 'Inter', 'IBM Plex Sans', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
 
-  /* Light theme tokens (mirrors popup) */
-  --pp-bg: #f7f8fa;
-  --pp-surface: #ffffff;
-  --pp-surface-alt: #f3f4f6;
-  --pp-surface-hover: #f9fafb;
-  --pp-border: #e5e7eb;
-  --pp-border-strong: #d1d5db;
-  --pp-text: #0f172a;
-  --pp-text-muted: #6b7280;
-  --pp-text-subtle: #9ca3af;
-  --pp-accent: #2563eb;
-  --pp-accent-hover: #1d4ed8;
-  --pp-accent-ghost: rgba(37, 99, 235, 0.08);
-  --pp-accent-ring: rgba(37, 99, 235, 0.18);
-  --pp-success: #16a34a;
-  --pp-success-bg: #dcfce7;
-  --pp-success-border: #bbf7d0;
-  --pp-warn: #d97706;
-  --pp-warn-bg: #fef3c7;
-  --pp-warn-border: #fde68a;
-  --pp-danger: #dc2626;
-  --pp-danger-bg: #fee2e2;
-  --pp-danger-border: #fecaca;
-  --pp-info: #2563eb;
-  --pp-info-bg: #dbeafe;
-  --pp-info-border: #bfdbfe;
-  --pp-purple-bg: #ede9fe;
-  --pp-purple-fg: #5b21b6;
-  --pp-sky-bg: #e0f2fe;
-  --pp-sky-fg: #0c4a6e;
-  --pp-teal-bg: #ecfeff;
-  --pp-teal-border: #a5f3fc;
-  --pp-teal-fg: #0e7490;
-  --pp-teal-subtle: #155e75;
+  /* Spectrum — used as semantic accents below */
+  --pp-spectrum-red:    #FF6B6B;
+  --pp-spectrum-orange: #FFA552;
+  --pp-spectrum-yellow: #FFD93D;
+  --pp-spectrum-green:  #6BCB77;
+  --pp-spectrum-cyan:   #4ECDC4;
+  --pp-spectrum-blue:   #4D96FF;
+  --pp-spectrum-violet: #B084CC;
 
+  /* Surfaces — deep indigo / nebula void */
+  --pp-bg:           #0A0E1A;
+  --pp-surface:      #141828;
+  --pp-surface-alt:  #1C1F33;
+  --pp-surface-hover:#1F2338;
+  --pp-border:       #252A45;
+  --pp-border-strong:#353B5F;
+
+  /* Text */
+  --pp-text:        #E8ECFF;
+  --pp-text-muted:  #8B95B8;
+  --pp-text-subtle: #5A6485;
+
+  /* Accent (primary action) */
+  --pp-accent:       var(--pp-spectrum-blue);
+  --pp-accent-hover: #6BAAFF;
+  --pp-accent-ghost: rgba(77, 150, 255, 0.12);
+  --pp-accent-ring:  rgba(77, 150, 255, 0.32);
+
+  /* Semantic — pulled from spectrum */
+  --pp-success:        var(--pp-spectrum-green);
+  --pp-success-bg:     rgba(107, 203, 119, 0.12);
+  --pp-success-border: rgba(107, 203, 119, 0.32);
+  --pp-warn:           var(--pp-spectrum-yellow);
+  --pp-warn-bg:        rgba(255, 217, 61, 0.10);
+  --pp-warn-border:    rgba(255, 217, 61, 0.30);
+  --pp-danger:         var(--pp-spectrum-red);
+  --pp-danger-bg:      rgba(255, 107, 107, 0.10);
+  --pp-danger-border:  rgba(255, 107, 107, 0.34);
+  --pp-info:           var(--pp-spectrum-blue);
+  --pp-info-bg:        rgba(77, 150, 255, 0.12);
+  --pp-info-border:    rgba(77, 150, 255, 0.32);
+
+  /* Topic / category accents (violet & cyan) */
+  --pp-purple-bg:    rgba(176, 132, 204, 0.14);
+  --pp-purple-fg:    var(--pp-spectrum-violet);
+  --pp-sky-bg:       rgba(78, 205, 196, 0.10);
+  --pp-sky-fg:       var(--pp-spectrum-cyan);
+  --pp-teal-bg:      rgba(78, 205, 196, 0.10);
+  --pp-teal-border:  rgba(78, 205, 196, 0.32);
+  --pp-teal-fg:      var(--pp-spectrum-cyan);
+  --pp-teal-subtle:  rgba(78, 205, 196, 0.6);
+
+  /* Geometry */
   --pp-radius-sm: 6px;
-  --pp-radius: 10px;
+  --pp-radius:    10px;
   --pp-radius-lg: 14px;
-  --pp-shadow-xs: 0 1px 1px rgba(15, 23, 42, 0.04);
-  --pp-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05),
-    0 1px 3px rgba(15, 23, 42, 0.06);
-  --pp-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.07),
-    0 2px 4px rgba(15, 23, 42, 0.05);
-  --pp-shadow-lg: 0 20px 40px rgba(15, 23, 42, 0.15),
-    0 8px 16px rgba(15, 23, 42, 0.08);
+
+  /* Shadows — pure black, deep-space depth */
+  --pp-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.45);
+  --pp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55),
+                  0 1px 3px rgba(0, 0, 0, 0.45);
+  --pp-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55),
+                  0 2px 4px rgba(0, 0, 0, 0.40);
+  --pp-shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.70),
+                  0 8px 16px rgba(0, 0, 0, 0.50);
+
   --pp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Decorative — faint coordinate grid + sparse star field */
+  --pp-grid-size: 56px;
+  --pp-grid: linear-gradient(to right, rgba(139, 149, 184, 0.045) 1px, transparent 1px),
+             linear-gradient(to bottom, rgba(139, 149, 184, 0.045) 1px, transparent 1px);
+  --pp-nebula: radial-gradient(900px 600px at 12% -8%, rgba(77, 150, 255, 0.10), transparent 60%),
+               radial-gradient(900px 600px at 92% 110%, rgba(176, 132, 204, 0.08), transparent 60%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pp-bg: #0b0d12;
-    --pp-surface: #141821;
-    --pp-surface-alt: #1a1f2a;
-    --pp-surface-hover: #1c2230;
-    --pp-border: #232936;
-    --pp-border-strong: #303747;
-    --pp-text: #e8ecf4;
-    --pp-text-muted: #9aa3b2;
-    --pp-text-subtle: #6b7280;
-    --pp-accent: #60a5fa;
-    --pp-accent-hover: #3b82f6;
-    --pp-accent-ghost: rgba(96, 165, 250, 0.14);
-    --pp-accent-ring: rgba(96, 165, 250, 0.25);
-    --pp-success: #4ade80;
-    --pp-success-bg: rgba(74, 222, 128, 0.12);
-    --pp-success-border: rgba(74, 222, 128, 0.28);
-    --pp-warn: #fbbf24;
-    --pp-warn-bg: rgba(251, 191, 36, 0.12);
-    --pp-warn-border: rgba(251, 191, 36, 0.28);
-    --pp-danger: #f87171;
-    --pp-danger-bg: rgba(248, 113, 113, 0.12);
-    --pp-danger-border: rgba(248, 113, 113, 0.35);
-    --pp-info-bg: rgba(96, 165, 250, 0.14);
-    --pp-info-border: rgba(96, 165, 250, 0.32);
-    --pp-purple-bg: rgba(167, 139, 250, 0.16);
-    --pp-purple-fg: #c4b5fd;
-    --pp-sky-bg: rgba(125, 211, 252, 0.14);
-    --pp-sky-fg: #7dd3fc;
-    --pp-teal-bg: rgba(103, 232, 249, 0.1);
-    --pp-teal-border: rgba(103, 232, 249, 0.28);
-    --pp-teal-fg: #67e8f9;
-    --pp-teal-subtle: #a5f3fc;
-    --pp-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.4);
-    --pp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5),
-      0 1px 3px rgba(0, 0, 0, 0.4);
-    --pp-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5),
-      0 2px 4px rgba(0, 0, 0, 0.4);
-    --pp-shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.7),
-      0 8px 16px rgba(0, 0, 0, 0.5);
-  }
-}
+/* No light-mode override on purpose — dashboard is dark-first.
+ * If the user really wants light, lib/theme.css's :root tokens win
+ * for shared chrome, while this file pins the dashboard surface. */
 
 *,
 *::before,
@@ -103,20 +100,43 @@
 
 body {
   margin: 0;
-  background: var(--pp-bg);
+  background-color: var(--pp-bg);
+  background-image: var(--pp-nebula);
+  background-attachment: fixed;
   color: var(--pp-text);
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Faint coordinate grid behind everything — purely decorative.
+ * Sits in a fixed pseudo-element so it never affects layout. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--pp-grid);
+  background-size: var(--pp-grid-size) var(--pp-grid-size);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+/* Make sure the actual app content sits above the decoration */
+.db-root {
+  position: relative;
+  z-index: 1;
 }
 
 /* ---------- Layout ---------- */
 
 .db-root {
-  max-width: 1200px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 24px 20px;
+  padding: 28px 32px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 /* When papers layout is active, remove max-width to make room for sidebar */
 .db-root:has(.db-papers-layout) {
@@ -129,65 +149,165 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: linear-gradient(180deg,
+    rgba(20, 24, 40, 0.70) 0%,
+    rgba(20, 24, 40, 0.40) 100%);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-lg);
+  box-shadow: var(--pp-shadow-xs),
+              inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+/* Prismatic top edge */
+.db-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 150, 255, 0.35) 20%,
+    rgba(78, 205, 196, 0.28) 50%,
+    rgba(176, 132, 204, 0.30) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* Hero brand block — logo + wordmark + subtitle, mirroring popup hero */
+.db-hero-brand {
+  display: flex;
+  align-items: center;
   gap: 10px;
+  flex-shrink: 0;
+}
+
+.db-hero-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  box-shadow:
+    var(--pp-shadow-sm),
+    0 0 14px rgba(77, 150, 255, 0.16),
+    inset 0 0 0 1px rgba(232, 236, 255, 0.06);
+  flex-shrink: 0;
+  background: var(--pp-surface);
+  transition: box-shadow 200ms var(--pp-ease), transform 160ms var(--pp-ease);
+}
+.db-hero-logo:hover {
+  transform: scale(1.05);
+  box-shadow:
+    var(--pp-shadow-md),
+    0 0 22px rgba(176, 132, 204, 0.28),
+    inset 0 0 0 1px rgba(232, 236, 255, 0.10);
+}
+
+.db-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
 }
 
 .db-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 22px;
+  font-family: var(--pp-font-display, 'Manrope', system-ui, sans-serif);
+  font-size: 18px;
   font-weight: 700;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
   color: var(--pp-text);
 }
 
-.db-title::before {
-  content: '';
-  display: inline-block;
-  width: 28px;
-  height: 28px;
-  background-image: url('/icon/128.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  border-radius: 7px;
-  box-shadow: var(--pp-shadow-sm);
-  background-color: var(--pp-surface);
+/* "Prism" part gets spectrum dispersion — mirrors popup .pp-prism */
+.db-title-prism {
+  background: linear-gradient(
+    90deg,
+    var(--pp-spectrum-blue)   0%,
+    var(--pp-spectrum-cyan)   35%,
+    var(--pp-spectrum-violet) 70%,
+    var(--pp-spectrum-blue)   100%
+  );
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 5px rgba(176, 132, 204, 0.22));
+  transition: background-position 600ms var(--pp-ease),
+              filter 200ms var(--pp-ease);
+}
+.db-header:hover .db-title-prism {
+  background-position: 100% 50%;
+  filter: drop-shadow(0 0 8px rgba(77, 150, 255, 0.40));
+}
+
+.db-hero-subtitle {
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--pp-text-subtle);
+  margin-top: 3px;
 }
 
 .db-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10px;
   font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
   padding: 4px 10px 4px 9px;
   border-radius: 999px;
   background: var(--pp-surface-alt);
   color: var(--pp-text-muted);
   border: 1px solid var(--pp-border);
   transition: background 200ms var(--pp-ease), color 200ms var(--pp-ease),
-    border-color 200ms var(--pp-ease);
+    border-color 200ms var(--pp-ease), box-shadow 200ms var(--pp-ease);
+  font-variant-numeric: tabular-nums;
 }
+/* Dot — glows in the same hue as the badge state */
 .db-badge::before {
   content: '';
-  width: 7px;
-  height: 7px;
+  position: relative;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: currentColor;
+  box-shadow: 0 0 6px currentColor;
   flex-shrink: 0;
 }
 .db-badge.ok {
   background: var(--pp-success-bg);
   color: var(--pp-success);
-  border-color: transparent;
+  border-color: rgba(107, 203, 119, 0.32);
+  box-shadow: 0 0 12px rgba(107, 203, 119, 0.16);
+}
+/* Pulsing ring on the dot when agent is ok */
+.db-badge.ok::before {
+  animation: db-dot-pulse 2.4s ease-out infinite;
+}
+@keyframes db-dot-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(107, 203, 119, 0.6); }
+  80%  { box-shadow: 0 0 0 5px rgba(107, 203, 119, 0); }
+  100% { box-shadow: 0 0 0 5px rgba(107, 203, 119, 0); }
 }
 .db-badge.err {
   background: var(--pp-danger-bg);
   color: var(--pp-danger);
-  border-color: transparent;
+  border-color: rgba(255, 107, 107, 0.32);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.16);
 }
 
 /* ---------- Toolbar ---------- */
@@ -197,39 +317,79 @@ body {
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(180deg,
+    rgba(20, 24, 40, 0.55) 0%,
+    rgba(20, 24, 40, 0.30) 100%);
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius);
+  box-shadow: var(--pp-shadow-xs),
+              inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  position: relative;
+  overflow: hidden;
+}
+/* Prismatic top edge — same motif as table-wrap and topic cards */
+.db-toolbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 150, 255, 0.30) 25%,
+    rgba(78, 205, 196, 0.28) 50%,
+    rgba(176, 132, 204, 0.30) 75%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .db-search {
   flex: 1;
-  min-width: 200px;
-  padding: 9px 12px;
+  min-width: 240px;
+  padding: 10px 14px 10px 36px;
   border: 1px solid var(--pp-border-strong);
   border-radius: var(--pp-radius-sm);
   font-size: 13px;
   outline: none;
-  background: var(--pp-surface);
+  background:
+    /* Magnifier icon, drawn purely in CSS via SVG data-URI */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238B95B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='7'/><line x1='20' y1='20' x2='16.65' y2='16.65'/></svg>") no-repeat 12px 50%,
+    var(--pp-surface-sunk, var(--pp-surface));
   color: var(--pp-text);
-  transition: border-color 120ms var(--pp-ease),
-    box-shadow 120ms var(--pp-ease);
+  transition: border-color 160ms var(--pp-ease),
+    box-shadow 160ms var(--pp-ease);
 }
 .db-search::placeholder {
   color: var(--pp-text-subtle);
 }
 .db-search:focus {
   border-color: var(--pp-accent);
-  box-shadow: 0 0 0 3px var(--pp-accent-ring);
+  box-shadow: 0 0 0 3px rgba(77, 150, 255, 0.20),
+              0 0 16px rgba(77, 150, 255, 0.18);
 }
 
 .db-select {
-  padding: 9px 10px;
+  padding: 10px 30px 10px 12px;
   border: 1px solid var(--pp-border-strong);
   border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  background: var(--pp-surface);
+  font-size: 12.5px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  letter-spacing: 0.3px;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--pp-text-subtle) 50%) calc(100% - 16px) 50% / 5px 5px no-repeat,
+    linear-gradient(135deg, var(--pp-text-subtle) 50%, transparent 50%) calc(100% - 11px) 50% / 5px 5px no-repeat,
+    var(--pp-surface-sunk, var(--pp-surface));
   color: var(--pp-text);
   cursor: pointer;
-  transition: border-color 120ms var(--pp-ease),
-    background 120ms var(--pp-ease);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 160ms var(--pp-ease),
+    background-color 160ms var(--pp-ease),
+    box-shadow 160ms var(--pp-ease);
 }
 .db-select:hover {
   border-color: var(--pp-text-muted);
@@ -237,7 +397,8 @@ body {
 .db-select:focus {
   outline: none;
   border-color: var(--pp-accent);
-  box-shadow: 0 0 0 3px var(--pp-accent-ring);
+  box-shadow: 0 0 0 3px rgba(77, 150, 255, 0.20),
+              0 0 16px rgba(77, 150, 255, 0.18);
 }
 
 /* ---------- Table ---------- */
@@ -248,26 +409,74 @@ body {
   border: 1px solid var(--pp-border);
   border-radius: var(--pp-radius);
   box-shadow: var(--pp-shadow-sm);
+  position: relative;
+}
+
+/* Prismatic top edge — same motif as popup hero divider */
+.db-table-wrap::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 150, 255, 0.30) 20%,
+    rgba(78, 205, 196, 0.28) 45%,
+    rgba(176, 132, 204, 0.30) 75%,
+    transparent 100%
+  );
+  border-radius: var(--pp-radius) var(--pp-radius) 0 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .db-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  /* fixed layout so explicit column widths (.title-cell, .tags-cell,
+   * .actions-cell, .date-cell) are honoured rather than being rebalanced
+   * by the browser based on cell content.  Without this, a long abstract
+   * stole pixels from TITLE and TAGS, causing the chip pile-up. */
+  table-layout: fixed;
 }
+
+/* Column widths live on <col> inside <colgroup> (see App.tsx).  When
+ * a fixed-layout table has a <colgroup>, Chrome uses ONLY these widths
+ * for column sizing — both thead and tbody share the same metadata,
+ * eliminating the cyclic-shift misalignment we hit when each section
+ * computed widths independently.  Verified live with chrome-devtools
+ * MCP at 1440px viewport.                                          */
+.db-table > colgroup > .col-check    { width: 38px; }
+.db-table > colgroup > .col-title    { width: 320px; }
+.db-table > colgroup > .col-abstract { width: auto; min-width: 200px; }
+.db-table > colgroup > .col-tags     { width: 240px; }
+.db-table > colgroup > .col-actions  { width: 132px; }
 
 .db-th {
   text-align: left;
-  padding: 11px 12px;
+  padding: 12px 12px;
   font-weight: 600;
-  font-size: 10.5px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.7px;
+  letter-spacing: 1.4px;
   color: var(--pp-text-subtle);
-  background: var(--pp-surface-alt);
-  border-bottom: 1px solid var(--pp-border);
+  background: linear-gradient(180deg,
+    var(--pp-surface-alt) 0%,
+    rgba(28, 31, 51, 0.85) 100%);
+  border-bottom: 1px solid var(--pp-border-strong);
   white-space: nowrap;
   user-select: none;
+  /* NOTE: do NOT set position:sticky on <th> here.  Combined with
+   * `table-layout: fixed` on the parent <table>, sticky <th> cells
+   * are pulled out of the column-width calculation and the thead /
+   * tbody columns end up misaligned.  The dashboard's table-wrap is
+   * not its own scroll container anyway, so a sticky header would
+   * not fire reliably.  Leave it as a normal table header. */
 }
 .db-th.sortable {
   cursor: pointer;
@@ -279,17 +488,55 @@ body {
 
 .db-row {
   cursor: pointer;
-  transition: background 120ms var(--pp-ease);
+  transition: background 120ms var(--pp-ease), box-shadow 120ms var(--pp-ease);
+  /* CRITICAL: do NOT put `position: relative` here, and do NOT attach
+   * a ::before pseudo-element to .db-row.  Verified live with
+   * chrome-devtools MCP (2026-05-08): a ::before on <tr> inside a
+   * `table-layout: fixed` table is treated by Chromium as if it were
+   * an extra leading cell, which shifts every tbody column one slot
+   * to the right.  Result: header / body misalignment that no amount
+   * of <colgroup> / column-width tweaking can fix.
+   * The accent rail lives on the first <td> (.db-td-check) instead. */
+}
+/* Left accent rail — visually identical to the previous tr::before,
+ * but anchored to the first cell so the <tr> stays free of pseudo
+ * elements.  See note on .db-row above for the full bug story. */
+.db-td-check {
+  position: relative;
+}
+.db-td-check::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--pp-accent);
+  opacity: 0;
+  transition: opacity 160ms var(--pp-ease), box-shadow 160ms var(--pp-ease);
+  pointer-events: none;
+  z-index: 1;
 }
 .db-row:hover {
   background: var(--pp-surface-hover);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.db-row:hover .db-td-check::before {
+  opacity: 0.6;
+  box-shadow: 4px 0 12px rgba(77, 150, 255, 0.35);
 }
 .db-row.expanded {
   background: var(--pp-accent-ghost);
+  box-shadow: 0 2px 10px rgba(77, 150, 255, 0.12);
+}
+.db-row.expanded .db-td-check::before {
+  opacity: 1;
+  box-shadow: 4px 0 14px rgba(77, 150, 255, 0.45);
 }
 
 .db-td {
-  padding: 11px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--pp-border);
   vertical-align: top;
 }
@@ -297,29 +544,73 @@ body {
   border-bottom: none;
 }
 
+/* Zebra striping — every other row gets a slightly raised surface
+ * so the eye can track across very wide rows without losing its
+ * place.  Subtle enough not to fight the row-hover state.        */
+.db-row:nth-child(even) .db-td {
+  background: rgba(255, 255, 255, 0.012);
+}
+
 .title-cell {
-  max-width: 260px;
-  min-width: 180px;
+  /* Width is owned by <colgroup> .col-title (320px).  Keep min-width as
+   * a safety net for very narrow windows; do NOT re-declare width here
+   * or it will fight the colgroup. */
+  min-width: 240px;
 }
 
 .db-title-text {
-  font-weight: 550;
-  line-height: 1.4;
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.35;
+  letter-spacing: -0.1px;
+  color: var(--pp-text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin-bottom: 4px;
 }
 
+/* arxiv id (e.g. "2605.05674") and the trailing source link sit on
+ * the SAME line as a single mono-typed metadata strip — like a star
+ * catalogue designation in popup's pp-event-id.                  */
 .db-arxiv-id {
-  font-size: 11px;
-  color: var(--pp-text-muted);
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  display: inline;
+  font-size: 10.5px;
+  color: var(--pp-text-subtle);
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  letter-spacing: 0.4px;
+  margin-right: 8px;
 }
 
 .db-et-al {
   color: var(--pp-text-muted);
   font-size: 11px;
+}
+
+/* Source link "arxiv" — make it a quiet inline mono pill rather
+ * than a bold default-blue link that competes with the title. */
+.title-cell .db-link {
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+  color: var(--pp-text-subtle);
+  text-decoration: none;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(77, 150, 255, 0.08);
+  border: 1px solid rgba(77, 150, 255, 0.15);
+  transition: color 120ms var(--pp-ease), background 120ms var(--pp-ease),
+    border-color 120ms var(--pp-ease);
+}
+.title-cell .db-link:hover {
+  color: var(--pp-accent);
+  background: rgba(77, 150, 255, 0.18);
+  border-color: rgba(77, 150, 255, 0.35);
+  text-decoration: none;
 }
 
 .abstract-cell {
@@ -433,29 +724,13 @@ body {
   padding: 8px 0;
 }
 
-.db-page-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--pp-border-strong);
-  background: var(--pp-surface);
-  color: var(--pp-text);
-  border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: var(--pp-shadow-xs);
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), color 120ms var(--pp-ease);
-}
-.db-page-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-  box-shadow: none;
-}
-.db-page-btn:not(:disabled):hover {
-  background: var(--pp-accent-ghost);
-  border-color: var(--pp-accent);
-  color: var(--pp-accent);
-}
+/* .db-page-btn / .db-pdf-btn / .db-delete-btn / .db-import-btn /
+ * .db-link-btn / .db-import-close / .db-settings-btn rules used to
+ * live here.  They are now obsolete: every button consumes the
+ * unified `.pp-btn` system from `lib/button.css` (Observatory Console
+ * key shapes — see lib/button.css for the variant / size / shape API).
+ * Page-level CSS may only adjust margin / position — never repaint
+ * the key.  Keep this comment as a signpost for future contributors. */
 
 .db-page-info {
   font-size: 13px;
@@ -467,95 +742,41 @@ body {
 
 .actions-th,
 .actions-cell {
-  width: 140px;
+  /* Width is owned by <colgroup> .col-actions (132px). */
   text-align: center;
   white-space: nowrap;
 }
 
-.db-pdf-btn {
-  padding: 5px 10px;
-  margin-right: 6px;
-  border: 1px solid var(--pp-info-border);
-  background: var(--pp-info-bg);
-  color: var(--pp-accent);
-  border-radius: var(--pp-radius-sm);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), color 120ms var(--pp-ease);
+/* Width is owned by <colgroup> .col-check (38px).  The class itself
+ * carries no width here — see <colgroup> in App.tsx for the source
+ * of truth.  The detailed padding rule lives further down (line ~1080
+ * area) where the original "Checkbox column + row selection" block
+ * is defined. */
+
+/* venue / date cells are not currently in the dashboard <colgroup> (the
+ * table only has 5 logical columns: check / title / abstract / tags /
+ * actions).  These rules are kept for callers that build their own
+ * tables (e.g. expand panels) — they must NOT redeclare width on the
+ * main table or they would override the colgroup.                 */
+.venue-cell {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.db-pdf-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.db-pdf-btn:not(:disabled):hover {
-  background: var(--pp-accent);
-  border-color: var(--pp-accent);
-  color: #fff;
+.date-cell {
+  max-width: 100px;
 }
 
-.db-link-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
-.db-link-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+/* Row action / toolbar / paging / settings buttons all flow through
+ * the unified `.pp-btn` system in `lib/button.css`.  See the signpost
+ * comment further up.                                              */
 
-.db-delete-btn {
-  padding: 5px 10px;
-  border: 1px solid var(--pp-danger-border);
-  background: var(--pp-danger-bg);
-  color: var(--pp-danger);
-  border-radius: var(--pp-radius-sm);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), color 120ms var(--pp-ease);
-}
-.db-delete-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.db-delete-btn:not(:disabled):hover {
-  background: var(--pp-danger);
-  border-color: var(--pp-danger);
-  color: #fff;
-}
-
-/* ---------- Import folder button ---------- */
-
-.db-import-btn {
-  padding: 9px 14px;
-  border: 1px solid var(--pp-accent);
-  background: var(--pp-accent);
-  color: #fff;
-  border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  font-weight: 550;
-  cursor: pointer;
-  box-shadow: var(--pp-shadow-sm);
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), transform 80ms var(--pp-ease);
-}
-.db-import-btn:hover:not(:disabled) {
-  background: var(--pp-accent-hover);
-  border-color: var(--pp-accent-hover);
-}
-.db-import-btn:active:not(:disabled) {
-  transform: translateY(1px);
-}
-.db-import-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-  box-shadow: none;
+/* The "Action" header cell visually anchors the icon-only button
+ * group.  Push it slightly inset on the right so the keys do not
+ * touch the table edge. */
+.actions-cell {
+  padding-right: 16px;
 }
 
 /* ---------- Import progress modal ---------- */
@@ -756,44 +977,35 @@ body {
   text-decoration: none;
   color: var(--pp-text-muted);
   font-weight: 500;
-  transition: background 120ms var(--pp-ease), color 120ms var(--pp-ease);
+  transition: background 160ms var(--pp-ease),
+    color 160ms var(--pp-ease),
+    box-shadow 160ms var(--pp-ease);
 }
 .db-nav-link:hover {
   background: var(--pp-accent-ghost);
   color: var(--pp-accent);
+  box-shadow: 0 0 12px rgba(77, 150, 255, 0.18);
 }
 .db-nav-link.active {
   background: var(--pp-accent-ghost);
   color: var(--pp-accent);
+  box-shadow: 0 0 14px rgba(77, 150, 255, 0.24),
+              inset 0 0 0 1px rgba(77, 150, 255, 0.20);
 }
 
-/* ---------- Settings button ---------- */
+/* ---------- Header settings button (positioning only) ---------- */
 
-.db-settings-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+/* `.pp-btn` owns the visual treatment; the only thing the dashboard
+ * header needs to add is right-margin so it doesn't crash into the
+ * agent status badge. */
+.db-header-settings {
   margin-right: 10px;
-  padding: 7px 12px;
-  border: 1px solid var(--pp-border-strong);
-  background: var(--pp-surface);
-  color: var(--pp-text);
-  border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: var(--pp-shadow-xs);
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), color 120ms var(--pp-ease);
 }
-.db-settings-btn:hover {
-  background: var(--pp-accent-ghost);
-  border-color: var(--pp-accent);
-  color: var(--pp-accent);
-}
-.db-settings-icon {
-  font-size: 14px;
-  line-height: 1;
+.db-settings-label {
+  /* small caps for that observatory-console feel */
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
 }
 
 /* ---------- Checkbox column + row selection ---------- */
@@ -845,26 +1057,35 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 5px 10px 5px 8px;
   border-radius: 999px;
   background: var(--pp-purple-bg);
   color: var(--pp-purple-fg);
   font-size: 12px;
   font-weight: 500;
+  border: 1px solid rgba(176, 132, 204, 0.28);
+  box-shadow: 0 0 10px rgba(176, 132, 204, 0.18);
+  position: relative;
+  overflow: hidden;
 }
-.db-filter-chip button {
-  background: transparent;
-  border: none;
+/* Left spectrum rail — violet for filter chips, mirroring event row rails */
+.db-filter-chip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--pp-spectrum-violet);
+  box-shadow: 2px 0 8px rgba(176, 132, 204, 0.50);
+  border-radius: 999px 0 0 999px;
+}
+/* The chip's inline dismiss button is now a `.pp-btn` (subtle/round)
+ * — the chip itself just needs to give it room to breathe. */
+.db-filter-chip-clear {
+  --pp-btn-h: 18px;
+  margin-left: 2px;
   color: inherit;
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0 2px;
-  opacity: 0.7;
-  transition: opacity 120ms var(--pp-ease);
-}
-.db-filter-chip button:hover {
-  opacity: 1;
 }
 
 /* ---------- Tag chips ---------- */
@@ -873,15 +1094,27 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10.5px;
   font-weight: 500;
+  letter-spacing: 0.2px;
+  line-height: 1.5;
   cursor: pointer;
   user-select: none;
   border: 1px solid transparent;
   background: var(--pp-surface-alt);
   color: var(--pp-text-muted);
+  /* CRITICAL: never let a chip wrap onto multiple lines.  When the
+   * tags column is narrow, chips overflow horizontally instead of
+   * shattering long tags like "out-of-distribution-robustness" into
+   * a vertical word stack.                                        */
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 0 auto;
   transition: background 120ms var(--pp-ease),
     color 120ms var(--pp-ease), box-shadow 120ms var(--pp-ease);
 }
@@ -896,10 +1129,12 @@ body {
 .db-tag-chip-llm {
   background: var(--pp-info-bg);
   color: var(--pp-accent);
+  box-shadow: 0 0 8px rgba(77, 150, 255, 0.22);
 }
 .db-tag-chip-user {
   background: var(--pp-success-bg);
   color: var(--pp-success);
+  box-shadow: 0 0 8px rgba(107, 203, 119, 0.20);
 }
 .db-tag-chip-more {
   background: var(--pp-surface-alt);
@@ -907,23 +1142,33 @@ body {
   cursor: default;
 }
 .db-tag-chip-active {
-  box-shadow: 0 0 0 2px var(--pp-accent-ring);
+  box-shadow: 0 0 0 2px var(--pp-accent-ring),
+              0 0 12px rgba(77, 150, 255, 0.30);
 }
 
+/* Inline dismiss × on a tag chip — kept as a bespoke micro-button
+ * (not .pp-btn) because it must be tiny enough to live inside the
+ * chip's padding without disturbing the line-height or chip width. */
 .db-tag-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  padding: 0;
   background: transparent;
   border: none;
+  border-radius: 999px;
   color: inherit;
   cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0 2px;
-  margin-left: 2px;
-  opacity: 0.7;
-  transition: opacity 120ms var(--pp-ease);
+  opacity: 0.55;
+  transition: opacity 120ms var(--pp-ease),
+    background 120ms var(--pp-ease);
 }
 .db-tag-chip-x:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.12);
 }
 .db-tag-chip-x:disabled {
   opacity: 0.4;
@@ -933,12 +1178,30 @@ body {
 .db-row-tagstrip {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
+  row-gap: 4px;
+  align-items: center;
+  /* Hard ceiling on rows so the tags column never blows up the row
+   * height when a paper has 8+ tags.  Beyond that, db-tag-chip-more
+   * (the "+N" pill) absorbs the overflow.                           */
+  max-height: 56px;
+  /* CRITICAL: clip horizontally too.  Without this, a long single
+   * chip ("out-of-distribution-robustness") with `flex: 0 0 auto +
+   * white-space: nowrap` punches straight through the cell border
+   * and bleeds into the ACTIONS column.                            */
+  overflow: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .tags-cell {
-  max-width: 280px;
-  min-width: 160px;
+  /* Width is owned by <colgroup> .col-tags (240px).  Keep overflow
+   * clipping as defence-in-depth: a long single chip
+   * ("out-of-distribution-robustness") would otherwise punch through
+   * the cell's right border into the actions column.              */
+  min-width: 200px;
+  overflow: hidden;
 }
 
 .db-tags-empty {
@@ -1106,13 +1369,40 @@ body {
   flex-direction: column;
   gap: 8px;
   box-shadow: var(--pp-shadow-xs);
+  position: relative;
+  overflow: hidden;
   transition: border-color 160ms var(--pp-ease),
-    box-shadow 160ms var(--pp-ease), transform 160ms var(--pp-ease);
+    box-shadow 160ms var(--pp-ease),
+    transform 160ms var(--pp-ease);
+}
+/* Spectrum top edge on topic cards — same prismatic motif as table-wrap */
+.db-topic-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(78, 205, 196, 0.28) 30%,
+    rgba(176, 132, 204, 0.30) 70%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 200ms var(--pp-ease);
+  pointer-events: none;
 }
 .db-topic-card:hover {
-  border-color: var(--pp-border-strong);
-  box-shadow: var(--pp-shadow-md);
-  transform: translateY(-1px);
+  border-color: rgba(77, 150, 255, 0.45);
+  box-shadow: var(--pp-shadow-md),
+              0 0 0 1px rgba(77, 150, 255, 0.18),
+              0 0 20px rgba(77, 150, 255, 0.18);
+  transform: translateY(-2px);
+}
+.db-topic-card:hover::before {
+  opacity: 1;
 }
 .db-topic-card-title {
   background: transparent;
@@ -1143,6 +1433,7 @@ body {
   color: var(--pp-text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1246,13 +1537,11 @@ body {
   to { opacity: 1; transform: scale(1); }
 }
 
-/* ---------- Focus rings ---------- */
+/* ---------- Focus rings (non-button elements only) ---------- */
 
-.db-page-btn:focus-visible,
-.db-import-btn:focus-visible,
-.db-settings-btn:focus-visible,
-.db-pdf-btn:focus-visible,
-.db-delete-btn:focus-visible,
+/* `.pp-btn` ships its own focus ring (see lib/button.css).  This
+ * rule covers nav links / clickable headings / chips that are NOT
+ * built on `.pp-btn`. */
 .db-nav-link:focus-visible,
 .db-topic-card-title:focus-visible,
 .db-tag-chip:focus-visible {
@@ -1268,92 +1557,204 @@ body {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 0;
+  gap: 16px;
   overflow: hidden;
+  align-items: flex-start;
+  padding-bottom: 28px;
 }
 
 .db-papers-main {
   flex: 1;
   min-width: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .wd-sidebar {
-  width: 320px;
-  min-width: 320px;
-  border-left: 1px solid var(--pp-border);
-  background: var(--pp-surface);
+  width: 300px;
+  min-width: 300px;
+  flex-shrink: 0;
+  border: 1px solid var(--pp-border);
+  border-radius: var(--pp-radius-lg);
+  background:
+    radial-gradient(380px 220px at 50% -8%, rgba(176, 132, 204, 0.12), transparent 55%),
+    var(--pp-surface);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 120px);
+  box-shadow:
+    0 0 0 1px rgba(176, 132, 204, 0.08),
+    var(--pp-shadow-md);
+}
+/* Prismatic top edge — mirrors the table-wrap top edge */
+.wd-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 150, 255, 0.28) 20%,
+    rgba(176, 132, 204, 0.40) 60%,
+    rgba(78, 205, 196, 0.24) 85%,
+    transparent 100%
+  );
+  border-radius: var(--pp-radius-lg) var(--pp-radius-lg) 0 0;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .wd-title {
   margin: 0;
-  padding: 14px 16px 10px;
-  font-size: 14px;
+  padding: 14px 16px 12px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10px;
   font-weight: 600;
-  color: var(--pp-text);
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: var(--pp-text-subtle);
   border-bottom: 1px solid var(--pp-border);
   flex-shrink: 0;
+  position: relative;
+  border-radius: var(--pp-radius-lg) var(--pp-radius-lg) 0 0;
+}
+/* Tiny "live" dot before the title — like a recording indicator */
+.wd-title::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pp-spectrum-violet);
+  box-shadow: 0 0 8px rgba(176, 132, 204, 0.6);
+  margin-right: 8px;
+  vertical-align: middle;
+  animation: wd-live-pulse 2.4s ease-in-out infinite;
+}
+@keyframes wd-live-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
 }
 
 .wd-loading,
 .wd-error,
 .wd-empty {
-  padding: 20px 16px;
-  font-size: 13px;
-  color: var(--pp-text-muted);
+  padding: 28px 20px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--pp-text-subtle);
+  text-align: center;
 }
 .wd-error {
-  color: #ef4444;
+  color: var(--pp-danger);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+  font-size: 13px;
 }
 
 .wd-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px;
+  padding: 12px 12px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--pp-border-strong) transparent;
 }
 
 .wd-card {
+  position: relative;
   border: 1px solid var(--pp-border);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: var(--pp-radius);
+  padding: 12px 14px;
   margin-bottom: 8px;
+  background: var(--pp-surface-alt);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  overflow: hidden;
+  transition: border-color 160ms var(--pp-ease),
+              background 160ms var(--pp-ease),
+              box-shadow 160ms var(--pp-ease),
+              transform 160ms var(--pp-ease);
+}
+/* Coloured left rail — same star-catalogue motif as popup events */
+.wd-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--pp-spectrum-violet);
+  opacity: 0.6;
+  box-shadow: 3px 0 10px rgba(176, 132, 204, 0.30);
+  transition: opacity 160ms var(--pp-ease),
+              box-shadow 160ms var(--pp-ease);
 }
 .wd-card:hover {
-  border-color: var(--pp-accent);
+  border-color: rgba(176, 132, 204, 0.45);
+  box-shadow: 0 0 16px rgba(176, 132, 204, 0.16),
+              var(--pp-shadow-sm);
+  transform: translateX(-1px);
+}
+.wd-card:hover::before {
+  opacity: 1;
+  box-shadow: 4px 0 14px rgba(176, 132, 204, 0.50);
 }
 .wd-card--expanded {
-  border-color: var(--pp-accent);
-  background: var(--pp-surface-alt);
+  border-color: rgba(77, 150, 255, 0.45);
+  background: linear-gradient(180deg,
+    rgba(77, 150, 255, 0.08) 0%,
+    rgba(176, 132, 204, 0.06) 100%);
+  box-shadow: 0 0 18px rgba(77, 150, 255, 0.16),
+              var(--pp-shadow-sm);
+}
+.wd-card--expanded::before {
+  background: var(--pp-spectrum-blue);
+  opacity: 1;
+  box-shadow: 4px 0 14px rgba(77, 150, 255, 0.50);
 }
 
 .wd-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 .wd-card-week {
-  font-size: 13px;
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.6px;
   color: var(--pp-text);
 }
 .wd-card-date {
-  font-size: 11px;
-  color: var(--pp-text-muted);
+  font-family: var(--pp-font-mono, ui-monospace, 'SF Mono', Menlo, monospace);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--pp-text-subtle);
+  font-variant-numeric: tabular-nums;
 }
 
 .wd-card-body {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--pp-border);
   cursor: default;
 }
 
 .wd-content {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.65;
   color: var(--pp-text);
   white-space: pre-wrap;
 }

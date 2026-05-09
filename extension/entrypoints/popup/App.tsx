@@ -1,28 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { listEvents, clearEvents, type ArchiveEvent } from '@/lib/events';
+import { useEffect, useState } from 'react';
 import { getDashboardUrl } from '@/lib/agent';
 
 type AgentStatus = 'unknown' | 'online' | 'offline';
 
 export default function App() {
-  const [events, setEvents] = useState<ArchiveEvent[]>([]);
   const [agent, setAgent] = useState<AgentStatus>('unknown');
-  const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    void refresh();
     void probeAgent();
-    const t = setInterval(() => {
-      void refresh();
-      void probeAgent();
-      setNow(Date.now());
-    }, 2500);
+    const t = setInterval(() => void probeAgent(), 2500);
     return () => clearInterval(t);
   }, []);
-
-  async function refresh() {
-    setEvents(await listEvents());
-  }
 
   async function probeAgent() {
     try {
@@ -35,23 +23,12 @@ export default function App() {
 
   async function openDashboard() {
     const url = await getDashboardUrl();
-        window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(url, '_blank', 'noopener,noreferrer');
     window.close();
   }
 
-  function openOptions() {
-    chrome.runtime.openOptionsPage?.();
-  }
-
-  async function onClear() {
-    await clearEvents();
-    await refresh();
-  }
-
   const agentLabel = agent === 'online' ? 'Online' : agent === 'offline' ? 'Offline' : '…';
-  const agentClass = agent === 'online' ? 'ok' : agent === 'offline' ? 'err' : '';
-
-  const visibleEvents = useMemo(() => events.slice(0, 10), [events]);
+  const agentClass  = agent === 'online' ? 'ok'     : agent === 'offline' ? 'err'     : '';
 
   return (
     <div className="pp-root">
@@ -59,8 +36,10 @@ export default function App() {
       <div className="pp-hero">
         <img className="pp-logo" src="/icon/128.png" alt="PaperPrism" />
         <div className="pp-hero-text">
-          <div className="pp-title">PaperPrism</div>
-          <div className="pp-subtitle">Local-first paper library</div>
+          <div className="pp-title">
+            Paper<span className="pp-prism">Prism</span>
+          </div>
+          <div className="pp-subtitle">Local Atlas · 127.0.0.1</div>
         </div>
         <span
           className={`pp-status-pill ${agentClass}`}
@@ -79,7 +58,7 @@ export default function App() {
         </button>
         <button
           className="pp-btn icon-only"
-          onClick={openOptions}
+          onClick={() => chrome.runtime.openOptionsPage?.()}
           aria-label="Settings"
           title="Settings"
         >
@@ -100,7 +79,7 @@ export default function App() {
             install it.
           </div>
           <div className="pp-offline-actions">
-            <button className="pp-btn primary" onClick={openOptions}>
+            <button className="pp-btn primary" onClick={() => chrome.runtime.openOptionsPage?.()}>
               <IconSparkles />
               Open setup
             </button>
@@ -112,93 +91,20 @@ export default function App() {
         </div>
       )}
 
-      {/* Activity */}
-      {agent !== 'offline' && (
-        <>
-          <div className="pp-section-title">
-            <span>Recent activity</span>
-            {events.length > 0 && (
-              <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>
-                {events.length} {events.length === 1 ? 'event' : 'events'}
-              </span>
-            )}
-          </div>
-
-          {visibleEvents.length === 0 ? (
-            <div className="pp-empty">
-              <IconInbox className="pp-empty-icon" />
-              <div>No arxiv downloads yet.</div>
-              <div style={{ fontSize: 11 }}>
-                Download a PDF from arxiv.org to get started.
-              </div>
-            </div>
-          ) : (
-            <div className="pp-events">
-              {visibleEvents.map((e) => (
-                <EventRow key={e.id} event={e} now={now} />
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
       {/* Footer */}
       <div className="pp-footer">
-        <a className="pp-link" onClick={openOptions} role="button" tabIndex={0}>
-          <IconSettings />
-          Settings
-        </a>
-        <a className="pp-link" onClick={onClear} role="button" tabIndex={0}>
-          <IconTrash />
-          Clear log
+        <a
+          className="pp-link"
+          href="https://github.com/MrMao007/PaperPrism"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <IconGitHub />
+          GitHub
         </a>
       </div>
     </div>
   );
-}
-
-function EventRow({ event, now }: { event: ArchiveEvent; now: number }) {
-  const updated = Date.parse(event.updatedAt);
-  const rel = formatRelative(now - updated);
-  return (
-    <div className={`pp-event status-${event.status}`}>
-      <div className="pp-event-body">
-        <div className="pp-event-head">
-          <span className="pp-event-id">{event.arxivId}</span>
-          <span className="pp-event-time">{rel}</span>
-        </div>
-        {event.title && <div className="pp-event-title">{event.title}</div>}
-        <div className="pp-event-status-label">{prettyStatus(event.status)}</div>
-        {event.message && <div className="pp-event-msg">{event.message}</div>}
-      </div>
-    </div>
-  );
-}
-
-function prettyStatus(s: ArchiveEvent['status']): string {
-  switch (s) {
-    case 'agent-ok': return 'Archived';
-    case 'agent-sent': return 'Sending';
-    case 'agent-failed': return 'Failed';
-    case 'downloaded': return 'Downloaded';
-    case 'redirected': return 'Redirected';
-    case 'skipped': return 'Skipped';
-    case 'detected': return 'Detected';
-  }
-}
-
-function formatRelative(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return 'just now';
-  const sec = Math.floor(ms / 1000);
-  if (sec < 10) return 'just now';
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return `${Math.floor(day / 7)}w ago`;
 }
 
 /* ---------- Inline SVG icons ---------- */
@@ -257,24 +163,10 @@ function IconRefresh() {
   );
 }
 
-function IconInbox(props: { className?: string }) {
+function IconGitHub() {
   return (
-    <svg className={props.className ?? 'pp-icon'} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true">
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
-  );
-}
-
-function IconTrash() {
-  return (
-    <svg className="pp-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="m19 6-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <svg className="pp-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2Z" />
     </svg>
   );
 }

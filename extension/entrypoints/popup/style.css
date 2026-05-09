@@ -1,158 +1,181 @@
-:root {
-  color-scheme: light dark;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto,
-    'Helvetica Neue', sans-serif;
-
-  /* Light theme tokens */
-  --pp-bg: #f7f8fa;
-  --pp-surface: #ffffff;
-  --pp-surface-alt: #f3f4f6;
-  --pp-border: #e5e7eb;
-  --pp-border-strong: #d1d5db;
-  --pp-text: #0f172a;
-  --pp-text-muted: #6b7280;
-  --pp-text-subtle: #9ca3af;
-  --pp-accent: #2563eb;
-  --pp-accent-hover: #1d4ed8;
-  --pp-accent-ghost: rgba(37, 99, 235, 0.08);
-  --pp-success: #16a34a;
-  --pp-success-bg: #dcfce7;
-  --pp-warn: #d97706;
-  --pp-warn-bg: #fef3c7;
-  --pp-danger: #dc2626;
-  --pp-danger-bg: #fee2e2;
-  --pp-danger-border: #fecaca;
-  --pp-info: #2563eb;
-
-  --pp-radius-sm: 6px;
-  --pp-radius: 10px;
-  --pp-radius-lg: 14px;
-  --pp-shadow-xs: 0 1px 1px rgba(15, 23, 42, 0.04);
-  --pp-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06),
-    0 1px 3px rgba(15, 23, 42, 0.08);
-  --pp-shadow-md: 0 4px 10px rgba(15, 23, 42, 0.08),
-    0 2px 4px rgba(15, 23, 42, 0.05);
-  --pp-ease: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pp-bg: #0b0d12;
-    --pp-surface: #141821;
-    --pp-surface-alt: #1a1f2a;
-    --pp-border: #232936;
-    --pp-border-strong: #303747;
-    --pp-text: #e8ecf4;
-    --pp-text-muted: #9aa3b2;
-    --pp-text-subtle: #6b7280;
-    --pp-accent: #60a5fa;
-    --pp-accent-hover: #3b82f6;
-    --pp-accent-ghost: rgba(96, 165, 250, 0.14);
-    --pp-success: #4ade80;
-    --pp-success-bg: rgba(74, 222, 128, 0.12);
-    --pp-warn: #fbbf24;
-    --pp-warn-bg: rgba(251, 191, 36, 0.12);
-    --pp-danger: #f87171;
-    --pp-danger-bg: rgba(248, 113, 113, 0.12);
-    --pp-danger-border: rgba(248, 113, 113, 0.35);
-    --pp-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.4);
-    --pp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5),
-      0 1px 3px rgba(0, 0, 0, 0.4);
-    --pp-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5),
-      0 2px 4px rgba(0, 0, 0, 0.4);
-  }
-}
-
-* {
-  box-sizing: border-box;
-}
+/*
+ * PaperPrism — popup (Deep Space Atlas)
+ * -------------------------------------
+ * A 360px window into the Atlas. Dark indigo void, a faint coordinate
+ * grid drifting behind the wordmark, prism-spectrum status, IDs in
+ * monospace like RA/Dec coordinates.
+ *
+ * Tokens & global background (nebula + starfield + grid) come from
+ * lib/theme.css. This file only adds the popup-specific layout.
+ */
 
 body {
-  margin: 0;
   width: 360px;
-  background: var(--pp-bg);
-  color: var(--pp-text);
-  font-size: 13px;
-  -webkit-font-smoothing: antialiased;
+  /* The body gets nebula + starfield from theme.css; we just constrain
+   * the width and add a faint blue rim glow at the top edge. */
+  background-image:
+    radial-gradient(
+      640px 220px at 50% -40%,
+      rgba(77, 150, 255, 0.18),
+      transparent 60%
+    ),
+    var(--pp-nebula);
 }
 
+/* ============================================================
+ * Container — a single 360px window into the void
+ * ============================================================ */
 .pp-root {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 14px 12px;
+  gap: var(--pp-space-3);
+  padding: var(--pp-space-5) var(--pp-space-5) var(--pp-space-4);
 }
 
-/* ---------- Hero ---------- */
+/* ============================================================
+ * Hero — logo + wordmark + status pill, separated by a thin
+ * spectrum-tinted divider that fades in from the left.
+ * ============================================================ */
 .pp-hero {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 2px 2px 0;
+  gap: var(--pp-space-3);
+  padding-bottom: var(--pp-space-3);
+  position: relative;
+}
+
+.pp-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77, 150, 255, 0.35) 18%,
+    rgba(176, 132, 204, 0.35) 60%,
+    transparent 100%
+  );
+  opacity: 0.7;
 }
 
 .pp-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  box-shadow: var(--pp-shadow-sm);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--pp-radius);
+  box-shadow:
+    var(--pp-shadow-sm),
+    0 0 18px rgba(77, 150, 255, 0.18),
+    inset 0 0 0 1px rgba(232, 236, 255, 0.06);
   flex-shrink: 0;
-  background: var(--pp-surface);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(77, 150, 255, 0.18), transparent 60%),
+    var(--pp-surface);
+  transition: box-shadow var(--pp-dur) var(--pp-ease-out),
+              transform var(--pp-dur) var(--pp-ease-spring);
+}
+
+.pp-root:hover .pp-logo {
+  transform: scale(1.04);
+  box-shadow:
+    var(--pp-shadow-md),
+    0 0 28px rgba(176, 132, 204, 0.32),
+    inset 0 0 0 1px rgba(232, 236, 255, 0.1);
 }
 
 .pp-hero-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  flex: 1;
+  gap: 0;
   min-width: 0;
 }
 
+/* Wordmark "Paper" stays solid white-ish, "Prism" gets the spectrum
+ * dispersion via .pp-prism (defined globally in lib/theme.css). */
 .pp-title {
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.2px;
+  font-family: var(--pp-font-display);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
   color: var(--pp-text);
 }
 
-.pp-subtitle {
-  font-size: 11px;
-  color: var(--pp-text-muted);
+.pp-title .pp-prism {
+  background: var(--pp-spectrum-grad);
+  background-size: 200% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  transition: background-position var(--pp-dur-slow) var(--pp-ease-out),
+              filter var(--pp-dur) var(--pp-ease-out);
+  filter: drop-shadow(0 0 6px rgba(176, 132, 204, 0.25));
 }
 
+.pp-root:hover .pp-title .pp-prism {
+  background-position: 100% 50%;
+  filter: drop-shadow(0 0 10px rgba(77, 150, 255, 0.45));
+}
+
+.pp-subtitle {
+  font-family: var(--pp-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--pp-text-subtle);
+  margin-top: 4px;
+}
+
+/* ============================================================
+ * Status pill — thin, like a telemetry chip on a console
+ * ============================================================ */
 .pp-status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px 4px 7px;
+  padding: 4px 10px 4px 9px;
   border-radius: 999px;
-  font-size: 11px;
+  font-family: var(--pp-font-mono);
+  font-size: 10px;
   font-weight: 500;
-  background: var(--pp-surface-alt);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  background: var(--pp-surface);
   color: var(--pp-text-muted);
   border: 1px solid var(--pp-border);
-  transition: background 200ms var(--pp-ease), color 200ms var(--pp-ease),
-    border-color 200ms var(--pp-ease);
+  transition: all var(--pp-dur) var(--pp-ease);
+  font-variant-numeric: tabular-nums;
 }
 
 .pp-status-pill.ok {
   background: var(--pp-success-bg);
   color: var(--pp-success);
-  border-color: transparent;
+  border-color: rgba(107, 203, 119, 0.32);
+  box-shadow: 0 0 12px rgba(107, 203, 119, 0.16);
 }
 
 .pp-status-pill.err {
   background: var(--pp-danger-bg);
   color: var(--pp-danger);
-  border-color: transparent;
+  border-color: rgba(255, 107, 107, 0.32);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.16);
 }
 
 .pp-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: currentColor;
   position: relative;
+  box-shadow: 0 0 6px currentColor;
 }
 
 .pp-status-pill.ok .pp-status-dot::after {
@@ -161,170 +184,236 @@ body {
   inset: -4px;
   border-radius: 999px;
   background: currentColor;
-  opacity: 0.35;
-  animation: pp-pulse 1.8s ease-out infinite;
+  opacity: 0.4;
+  animation: pp-pulse 2.4s ease-out infinite;
 }
 
 @keyframes pp-pulse {
-  0% { transform: scale(0.6); opacity: 0.5; }
-  80% { transform: scale(1.8); opacity: 0; }
-  100% { transform: scale(1.8); opacity: 0; }
+  0%   { transform: scale(0.6); opacity: 0.5; }
+  80%  { transform: scale(2.4); opacity: 0; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
-/* ---------- Actions ---------- */
+/* ============================================================
+ * Actions — primary "spectrum sweep" button + ghost icon button
+ * ============================================================ */
 .pp-actions {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: var(--pp-space-2);
 }
 
 .pp-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 12px;
-  border: 1px solid var(--pp-border-strong);
+  gap: 7px;
+  padding: 10px var(--pp-space-3);
+  border: 1px solid var(--pp-border);
   background: var(--pp-surface);
   color: var(--pp-text);
-  border-radius: var(--pp-radius-sm);
-  font-size: 13px;
-  font-weight: 550;
+  border-radius: var(--pp-radius);
+  font-family: var(--pp-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
   cursor: pointer;
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), transform 80ms var(--pp-ease),
-    box-shadow 120ms var(--pp-ease);
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    background var(--pp-dur-fast) var(--pp-ease),
+    border-color var(--pp-dur-fast) var(--pp-ease),
+    color var(--pp-dur-fast) var(--pp-ease),
+    transform 80ms var(--pp-ease),
+    box-shadow var(--pp-dur) var(--pp-ease);
   box-shadow: var(--pp-shadow-xs);
 }
 
 .pp-btn:hover {
   background: var(--pp-surface-alt);
   border-color: var(--pp-border-strong);
+  color: var(--pp-text);
 }
 
 .pp-btn:active {
   transform: translateY(1px);
+  box-shadow: none;
 }
 
+/* Primary = blue accent with a slow spectrum sweep over the surface.
+ * The sweep is a translucent gradient layer that translates on hover. */
 .pp-btn.primary {
   background: var(--pp-accent);
-  color: #ffffff;
+  color: var(--pp-accent-ink);
   border-color: var(--pp-accent);
-  box-shadow: var(--pp-shadow-sm);
+  box-shadow:
+    var(--pp-shadow-sm),
+    var(--pp-glow-accent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.pp-btn.primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pp-spectrum-grad);
+  opacity: 0;
+  mix-blend-mode: overlay;
+  transform: translateX(-110%);
+  transition: transform 700ms var(--pp-ease-out),
+              opacity var(--pp-dur) var(--pp-ease);
+  z-index: -1;
 }
 
 .pp-btn.primary:hover {
   background: var(--pp-accent-hover);
   border-color: var(--pp-accent-hover);
+  color: var(--pp-accent-ink);
+  box-shadow:
+    var(--pp-shadow-md),
+    0 0 28px rgba(77, 150, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.pp-btn.primary:hover::before {
+  opacity: 0.55;
+  transform: translateX(110%);
 }
 
 .pp-btn.icon-only {
-  padding: 9px 10px;
+  padding: 10px 11px;
   color: var(--pp-text-muted);
 }
 
 .pp-btn.icon-only:hover {
-  color: var(--pp-text);
+  color: var(--pp-accent);
+  background: var(--pp-accent-ghost);
+  border-color: var(--pp-accent);
+  box-shadow: 0 0 14px rgba(77, 150, 255, 0.28);
 }
 
 .pp-btn .pp-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+  stroke-width: 1.75;
 }
 
-/* ---------- Offline banner ---------- */
+/* ============================================================
+ * Offline banner — a violet alert with a glowing left rail
+ * ============================================================ */
 .pp-offline {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background: var(--pp-danger-bg);
-  border: 1px solid var(--pp-danger-border);
+  gap: var(--pp-space-2);
+  padding: var(--pp-space-4);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(176, 132, 204, 0.10),
+      rgba(255, 165, 82, 0.06)
+    ),
+    var(--pp-surface);
+  border: 1px solid var(--pp-border);
+  border-left: 3px solid var(--pp-secondary);
   border-radius: var(--pp-radius);
-  animation: pp-fade-in 240ms var(--pp-ease);
+  box-shadow: -6px 0 18px rgba(176, 132, 204, 0.18);
+  animation: pp-fade-in 280ms var(--pp-ease-out);
 }
 
 .pp-offline-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--pp-space-2);
 }
 
 .pp-offline-icon {
   width: 16px;
   height: 16px;
-  color: var(--pp-danger);
+  color: var(--pp-secondary);
   flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(176, 132, 204, 0.55));
 }
 
 .pp-offline-title {
-  font-size: 13px;
+  font-family: var(--pp-font-display);
+  font-size: 14px;
   font-weight: 600;
-  color: var(--pp-danger);
+  letter-spacing: -0.2px;
+  color: var(--pp-text);
 }
 
 .pp-offline-body {
   font-size: 12px;
-  line-height: 1.5;
-  color: var(--pp-text);
-  opacity: 0.85;
+  line-height: 1.55;
+  color: var(--pp-text-muted);
 }
 
 .pp-offline-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--pp-space-2);
   margin-top: 2px;
 }
 
-/* ---------- Section title ---------- */
+/* ============================================================
+ * Section title — engraved label, like a console subheading
+ * ============================================================ */
 .pp-section-title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  font-family: var(--pp-font-mono);
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.9px;
+  letter-spacing: 1.8px;
   font-weight: 600;
   color: var(--pp-text-subtle);
-  padding: 2px 2px 0;
+  padding: var(--pp-space-2) 2px 0;
 }
 
-/* ---------- Event list ---------- */
+/* ============================================================
+ * Event list — like rows in a star catalogue
+ * Each row has a spectrum-coloured rail on the left whose hue
+ * encodes the event status (success/info/warn/danger/skipped).
+ * ============================================================ */
 .pp-events {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--pp-space-1);
   max-height: 280px;
   overflow-y: auto;
-  scrollbar-width: thin;
   padding-right: 2px;
-}
-
-.pp-events::-webkit-scrollbar {
-  width: 6px;
-}
-
-.pp-events::-webkit-scrollbar-thumb {
-  background: var(--pp-border-strong);
-  border-radius: 999px;
+  margin: 0 -2px;
 }
 
 .pp-event {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 9px 10px 9px 12px;
+  gap: var(--pp-space-2);
+  padding: 10px var(--pp-space-4) 10px var(--pp-space-4);
   background: var(--pp-surface);
   border: 1px solid var(--pp-border);
-  border-radius: var(--pp-radius-sm);
+  border-radius: var(--pp-radius);
   cursor: default;
-  transition: background 120ms var(--pp-ease),
-    border-color 120ms var(--pp-ease), transform 80ms var(--pp-ease);
-  animation: pp-slide-in 260ms var(--pp-ease);
+  overflow: hidden;
+  transition:
+    background var(--pp-dur-fast) var(--pp-ease),
+    border-color var(--pp-dur-fast) var(--pp-ease),
+    transform 80ms var(--pp-ease),
+    box-shadow var(--pp-dur) var(--pp-ease);
+  animation: pp-slide-in 260ms var(--pp-ease-out);
 }
 
+.pp-event:hover {
+  background: var(--pp-surface-alt);
+  border-color: var(--pp-border-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* Coloured left rail — encodes status, glows in the same hue */
 .pp-event::before {
   content: '';
   position: absolute;
@@ -332,21 +421,35 @@ body {
   top: 8px;
   bottom: 8px;
   width: 3px;
-  border-radius: 999px;
+  border-radius: 0 999px 999px 0;
   background: var(--pp-border-strong);
+  box-shadow: none;
+  transition: box-shadow var(--pp-dur) var(--pp-ease);
 }
 
-.pp-event.status-agent-ok::before { background: var(--pp-success); }
-.pp-event.status-agent-sent::before { background: var(--pp-info); }
-.pp-event.status-downloaded::before { background: var(--pp-info); }
-.pp-event.status-redirected::before { background: var(--pp-info); }
-.pp-event.status-agent-failed::before { background: var(--pp-danger); }
-.pp-event.status-skipped::before { background: var(--pp-warn); }
+.pp-event.status-agent-ok::before {
+  background: var(--pp-spectrum-green);
+  box-shadow: 6px 0 14px rgba(107, 203, 119, 0.4);
+}
+.pp-event.status-agent-sent::before,
+.pp-event.status-downloaded::before,
+.pp-event.status-redirected::before {
+  background: var(--pp-spectrum-blue);
+  box-shadow: 6px 0 14px rgba(77, 150, 255, 0.4);
+}
+.pp-event.status-agent-failed::before {
+  background: var(--pp-spectrum-red);
+  box-shadow: 6px 0 14px rgba(255, 107, 107, 0.45);
+}
+.pp-event.status-skipped::before {
+  background: var(--pp-spectrum-violet);
+  box-shadow: 6px 0 14px rgba(176, 132, 204, 0.4);
+}
 
 .pp-event-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
@@ -355,30 +458,48 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: var(--pp-space-2);
+  min-width: 0;
 }
 
+/* arxiv id — read like a star catalogue designation (e.g. "2401.12345") */
 .pp-event-id {
   font-size: 11.5px;
-  font-weight: 600;
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-weight: 500;
+  font-family: var(--pp-font-mono);
   color: var(--pp-text);
   font-variant-numeric: tabular-nums;
-}
-
-.pp-event-time {
-  font-size: 10.5px;
-  color: var(--pp-text-subtle);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.pp-event-title {
-  font-size: 12px;
-  color: var(--pp-text);
+  letter-spacing: 0.2px;
+  /* Allow ID to shrink so the timestamp always fits */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pp-event-time {
+  font-size: 10px;
+  color: var(--pp-text-subtle);
+  font-family: var(--pp-font-mono);
+  font-variant-numeric: tabular-nums;
+  /* Never shrink — time label is the anchor, ID truncates first */
+  flex: 0 0 auto;
+  white-space: nowrap;
+  letter-spacing: 0.4px;
+}
+
+.pp-event-title {
+  font-family: var(--pp-font-display);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--pp-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
 }
 
 .pp-event-msg {
@@ -389,86 +510,142 @@ body {
 }
 
 .pp-event-status-label {
-  font-size: 10.5px;
+  font-family: var(--pp-font-mono);
+  font-size: 9.5px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1.4px;
   font-weight: 600;
-  color: var(--pp-text-muted);
+  color: var(--pp-text-subtle);
+  margin-top: 2px;
 }
 
-.pp-event.status-agent-ok .pp-event-status-label { color: var(--pp-success); }
-.pp-event.status-agent-failed .pp-event-status-label { color: var(--pp-danger); }
-.pp-event.status-skipped .pp-event-status-label { color: var(--pp-warn); }
+.pp-event.status-agent-ok      .pp-event-status-label { color: var(--pp-spectrum-green); }
+.pp-event.status-agent-sent    .pp-event-status-label,
+.pp-event.status-downloaded    .pp-event-status-label,
+.pp-event.status-redirected    .pp-event-status-label { color: var(--pp-spectrum-blue); }
+.pp-event.status-agent-failed  .pp-event-status-label { color: var(--pp-spectrum-red); }
+.pp-event.status-skipped       .pp-event-status-label { color: var(--pp-spectrum-violet); }
 
+/* ============================================================
+ * Empty state — a quiet patch of void with a faint constellation
+ * ============================================================ */
 .pp-empty {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 18px 10px 20px;
-  color: var(--pp-text-subtle);
+  gap: var(--pp-space-2);
+  padding: var(--pp-space-6) var(--pp-space-4);
+  color: var(--pp-text-muted);
   font-size: 12px;
-  background: var(--pp-surface);
-  border: 1px dashed var(--pp-border-strong);
+  background:
+    radial-gradient(1px 1px at 22% 28%, rgba(232, 236, 255, 0.5) 50%, transparent 100%),
+    radial-gradient(1px 1px at 68% 42%, rgba(232, 236, 255, 0.4) 50%, transparent 100%),
+    radial-gradient(1px 1px at 38% 70%, rgba(232, 236, 255, 0.35) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 80% 76%, rgba(176, 132, 204, 0.55) 50%, transparent 100%),
+    radial-gradient(160px 60px at 50% 50%, rgba(77, 150, 255, 0.08), transparent 70%),
+    var(--pp-surface-sunk);
+  border: 1px solid var(--pp-border);
   border-radius: var(--pp-radius);
   text-align: center;
+  font-family: var(--pp-font-body);
+  overflow: hidden;
+}
+
+.pp-empty > div:first-of-type {
+  font-family: var(--pp-font-display);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pp-text);
+  letter-spacing: -0.1px;
+}
+
+.pp-empty > div:not(:first-of-type) {
+  font-family: var(--pp-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  color: var(--pp-text-subtle);
+  text-transform: uppercase;
 }
 
 .pp-empty-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   opacity: 0.7;
+  color: var(--pp-spectrum-blue);
+  filter: drop-shadow(0 0 8px rgba(77, 150, 255, 0.4));
 }
 
-/* ---------- Footer ---------- */
+/* ============================================================
+ * Footer — quiet console links
+ * ============================================================ */
 .pp-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
   color: var(--pp-text-muted);
-  border-top: 1px solid var(--pp-border);
-  padding-top: 8px;
-  margin-top: 2px;
+  padding-top: var(--pp-space-3);
+  margin-top: var(--pp-space-1);
+  position: relative;
+}
+
+.pp-footer::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--pp-divider) 30%,
+    var(--pp-divider) 70%,
+    transparent
+  );
 }
 
 .pp-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   color: var(--pp-text-muted);
   text-decoration: none;
   cursor: pointer;
-  padding: 4px 6px;
-  margin: -4px -6px;
-  border-radius: 4px;
-  transition: color 120ms var(--pp-ease), background 120ms var(--pp-ease);
+  padding: 4px 7px;
+  margin: -4px -7px;
+  border-radius: var(--pp-radius-sm);
+  font-family: var(--pp-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  transition:
+    color var(--pp-dur-fast) var(--pp-ease),
+    background var(--pp-dur-fast) var(--pp-ease),
+    text-shadow var(--pp-dur-fast) var(--pp-ease);
 }
 
 .pp-link:hover {
   color: var(--pp-accent);
   background: var(--pp-accent-ghost);
+  text-shadow: 0 0 10px rgba(77, 150, 255, 0.55);
 }
 
 .pp-link .pp-icon {
   width: 12px;
   height: 12px;
+  stroke-width: 1.75;
 }
 
-/* ---------- Animations ---------- */
+/* ============================================================
+ * Animations
+ * ============================================================ */
 @keyframes pp-fade-in {
-  from { opacity: 0; transform: translateY(-2px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes pp-slide-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Accessibility: focus rings */
-.pp-btn:focus-visible,
-.pp-link:focus-visible {
-  outline: 2px solid var(--pp-accent);
-  outline-offset: 2px;
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }

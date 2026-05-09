@@ -39,6 +39,26 @@ export default function Wizard({ onComplete }: WizardProps) {
   const [busy, setBusy] = useState<'' | 'saving' | 'testing'>('');
   const [error, setError] = useState('');
   const [testResult, setTestResult] = useState<string>('');
+  /**
+   * Per-provider model name override.  Each preset ships a default
+   * (`PROVIDER_PRESETS[i].model`) that pre-fills the inline editor in
+   * step 2; whatever the user types — picked from the suggestions
+   * datalist or freely typed — is remembered here so switching back
+   * to the same provider keeps the override.  When a slot is missing
+   * or empty, `effectiveModel()` falls back to the preset default.
+   */
+  const [customModels, setCustomModels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(PROVIDER_PRESETS.map((p) => [p.id, p.model])),
+  );
+
+  function effectiveModel(p: ProviderPreset): string {
+    const override = customModels[p.id]?.trim();
+    return override || p.model;
+  }
+
+  function patchCustomModel(id: string, value: string) {
+    setCustomModels((prev) => ({ ...prev, [id]: value }));
+  }
 
   // Probe agent + ollama when the wizard mounts / step returns to 1.
   useEffect(() => {
@@ -60,7 +80,9 @@ export default function Wizard({ onComplete }: WizardProps) {
     try {
       await saveLlmConfig({
         provider: p.provider,
-        model: p.model,
+        // Honour the wizard's inline model override; fall back to the
+        // preset default when the user left it untouched / blank.
+        model: effectiveModel(p),
         api_base: p.api_base || null,
         api_key_env: p.api_key_env || null,
         temperature: 0,
@@ -185,32 +207,73 @@ paperprism-agent restart`}
             </p>
           )}
           <div className="wiz-provider-list">
-            {PROVIDER_PRESETS.map((p) => (
-              <label
-                key={p.id}
-                className={`wiz-provider ${selectedId === p.id ? 'active' : ''}`}
-              >
-                <input
-                  type="radio"
-                  name="provider"
-                  checked={selectedId === p.id}
-                  onChange={() => setSelectedId(p.id)}
-                />
-                <div className="wiz-provider-main">
-                  <div className="wiz-provider-label">
-                    {p.label}
-                    {!p.needsKey && <span className="wiz-tag">免 key</span>}
-                    {p.id === 'ollama' && ollamaSeen && (
-                      <span className="wiz-tag ok">已检测到</span>
+            {PROVIDER_PRESETS.map((p) => {
+              const isActive = selectedId === p.id;
+              const datalistId = `wiz-models-${p.id}`;
+              return (
+                <label
+                  key={p.id}
+                  className={`wiz-provider ${isActive ? 'active' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="provider"
+                    checked={isActive}
+                    onChange={() => setSelectedId(p.id)}
+                  />
+                  <div className="wiz-provider-main">
+                    <div className="wiz-provider-label">
+                      {p.label}
+                      {!p.needsKey && <span className="wiz-tag">免 key</span>}
+                      {p.id === 'ollama' && ollamaSeen && (
+                        <span className="wiz-tag ok">已检测到</span>
+                      )}
+                    </div>
+                    <div className="wiz-provider-desc">{p.description}</div>
+
+                    {/* Inline model editor — only shown for the active
+                     * provider so the picker stays compact.  The user can
+                     * either pick from `modelSuggestions` (rendered as a
+                     * <datalist>) or type any custom model identifier;
+                     * the preset's default model is pre-filled.        */}
+                    {isActive ? (
+                      <div className="wiz-model-edit">
+                        <label className="wiz-model-label" htmlFor={`${datalistId}-input`}>
+                          Model
+                        </label>
+                        <input
+                          id={`${datalistId}-input`}
+                          className="wiz-model-input"
+                          type="text"
+                          list={p.modelSuggestions?.length ? datalistId : undefined}
+                          value={customModels[p.id] ?? ''}
+                          placeholder={p.model}
+                          onChange={(e) => patchCustomModel(p.id, e.target.value)}
+                          onClick={(e) => e.preventDefault()}
+                          /* `onClick.preventDefault` keeps the wrapping
+                           * <label> from toggling the radio when the
+                           * user just wants to focus the model input. */
+                        />
+                        {p.modelSuggestions?.length ? (
+                          <datalist id={datalistId}>
+                            {p.modelSuggestions.map((m) => (
+                              <option key={m} value={m} />
+                            ))}
+                          </datalist>
+                        ) : null}
+                        <span className="wiz-model-hint">
+                          点击下拉选常用型号，或直接输入任意自定义模型名
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="wiz-provider-meta">
+                        <code>{effectiveModel(p)}</code>
+                      </div>
                     )}
                   </div>
-                  <div className="wiz-provider-desc">{p.description}</div>
-                  <div className="wiz-provider-meta">
-                    <code>{p.model}</code>
-                  </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
           <div className="opt-row">
             <button className="opt-btn" onClick={() => setStep(1)}>

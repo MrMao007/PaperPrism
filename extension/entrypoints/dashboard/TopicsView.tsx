@@ -9,6 +9,7 @@ import {
   type TopicSummary,
 } from '@/lib/agent';
 import { useDialog } from '@/lib/dialog';
+import { Icon } from '@/lib/icons';
 import { navigate } from './router';
 
 export function TopicsView() {
@@ -66,31 +67,41 @@ export function TopicsView() {
 
       <div className="db-topics-grid">
         {topics.map((t) => (
-          <div key={t.id} className="db-topic-card">
-            <button
-              type="button"
-              className="db-topic-card-title"
-              onClick={() => navigate(`#/topics/${encodeURIComponent(t.slug)}`)}
-            >
-              {t.name}
-            </button>
+          <div
+            key={t.id}
+            className="db-topic-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`#/topics/${encodeURIComponent(t.slug)}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(`#/topics/${encodeURIComponent(t.slug)}`);
+              }
+            }}
+          >
+            <div className="db-topic-card-title">{t.name}</div>
             <div className="db-topic-card-meta">
               {t.paper_count} paper{t.paper_count === 1 ? '' : 's'} · {new Date(t.created_at).toLocaleDateString('en-CA')}
             </div>
             {t.summary && <div className="db-topic-card-sum">{t.summary}</div>}
-            <div className="db-topic-card-tags">
+            <div className="db-topic-card-tags" onClick={(e) => e.stopPropagation()}>
               {t.top_tags.map((tag) => (
                 <span key={tag} className="db-tag-chip db-tag-chip-llm">{tag}</span>
               ))}
             </div>
-            <div className="db-topic-card-actions">
+            <div className="db-topic-card-actions" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                className="db-delete-btn"
+                className="pp-btn"
+                data-variant="danger"
+                data-size="sm"
+                data-shape="icon"
                 onClick={() => onDelete(t)}
                 title="Delete topic (papers & tags remain)"
+                aria-label="Delete topic"
               >
-                Delete
+                <Icon name="trash" size={14} aria-hidden />
               </button>
             </div>
           </div>
@@ -132,8 +143,9 @@ export function TopicDetailView({ slug }: { slug: string }) {
   if (error || !topic) {
     return (
       <div className="db-topic-detail">
-        <button type="button" className="db-link db-link-btn" onClick={() => navigate('#/topics')}>
-          ← All topics
+        <button type="button" className="pp-btn" data-variant="ghost" data-size="sm" onClick={() => navigate('#/topics')}>
+          <Icon name="chevron-left" size={14} aria-hidden />
+          All topics
         </button>
         <div className="db-tag-error">{error ?? 'Topic not found'}</div>
       </div>
@@ -148,8 +160,9 @@ export function TopicDetailView({ slug }: { slug: string }) {
     <>
       {dialogNode}
       <div className="db-topic-detail">
-      <button type="button" className="db-link db-link-btn" onClick={() => navigate('#/topics')}>
-        ← All topics
+      <button type="button" className="pp-btn" data-variant="ghost" data-size="sm" onClick={() => navigate('#/topics')}>
+        <Icon name="chevron-left" size={14} aria-hidden />
+        All topics
       </button>
       <h2 className="db-topic-title">{topic.name}</h2>
       <div className="db-topic-meta">
@@ -187,8 +200,17 @@ export function TopicDetailView({ slug }: { slug: string }) {
               <div className="db-topic-paper-title" title={p.title ?? p.full_id}>
                 {p.title ?? p.full_id}
               </div>
-              <button type="button" className="db-pdf-btn" onClick={() => onOpenPdf(p)}>
-                PDF
+              <button
+                type="button"
+                className="pp-btn"
+                data-variant="ghost"
+                data-size="sm"
+                data-shape="icon"
+                onClick={() => onOpenPdf(p)}
+                title="Open PDF"
+                aria-label="Open PDF"
+              >
+                <Icon name="eye" size={14} aria-hidden />
               </button>
             </div>
             <div className="db-topic-paper-abstract">
