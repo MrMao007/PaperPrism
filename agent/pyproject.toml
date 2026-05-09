@@ -1,6 +1,6 @@
 [project]
 name = "paperprism-agent"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local-first Agent for PaperPrism: receives arxiv download events from the Chrome extension and mirrors papers into a hidden vault with LLM-powered tagging."
 requires-python = ">=3.10"
 readme = "README.md"
